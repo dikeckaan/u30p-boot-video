@@ -1,0 +1,6 @@
+id=u30p-usb-adb
+name=ZTE U30 Pro USB ADB
+version=v1.0.0
+versionCode=1
+author=kaandikec
+description=Keeps ADB on the USB port next to the normal network and file transfer (sys.usb.config ncm,mtp -> ncm,mtp,adb), so WebUSB tools such as the U30 Pro boot video page can connect. Other USB modes are left alone. Self-disables if boot fails.

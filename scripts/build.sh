@@ -24,5 +24,9 @@ mkdir -p "$WORK/module/system/media"
 sed -i.bak -e "s/^version=.*/version=$VER/" -e "s/^versionCode=.*/versionCode=$CODE/" "$WORK/module/module.prop" && rm "$WORK/module/module.prop.bak"
 chmod 755 "$WORK"/module/*.sh
 (cd "$WORK/module" && zip -q -r "$OUT/u30p-boot-video.zip" . -x '.*')
+# Companion module: keeps ADB on the USB port for the web installer.
+cp -R "$ROOT/usb-adb" "$WORK/usb-adb"
+chmod 755 "$WORK"/usb-adb/*.sh
+(cd "$WORK/usb-adb" && zip -q -r "$OUT/u30p-usb-adb.zip" . -x '.*')
 echo "$VER $CODE" > "$OUT/version"
-echo "built $OUT/u30p-boot-video.zip ($VER, versionCode $CODE)"
+echo "built $OUT/u30p-boot-video.zip and $OUT/u30p-usb-adb.zip ($VER, versionCode $CODE)"

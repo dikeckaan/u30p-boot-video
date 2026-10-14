@@ -169,6 +169,7 @@ summary { cursor: pointer; font-weight: 500; }
 .install li { margin: 4px 0; }
 .sub { font-weight: 600; margin: 18px 0 6px; }
 .step h2 + .sub { margin-top: 0; }
+.hint a, .install a { color: var(--accent); }
 #usbLog { max-height: 220px; overflow: auto; white-space: pre-wrap; }
 code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.8125rem; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; margin: 10px 0 0; }
@@ -275,7 +276,7 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
     <div class="step">
       <h2><span class="n">4</span>Install</h2>
       <p class="sub">Over USB, from this page</p>
-      <p class="hint" style="margin-top:0">Plug the device in with USB debugging on, then connect. Works in Chrome or Edge.</p>
+      <p class="hint" style="margin-top:0">Works in Chrome or Edge. The U30 Pro only offers ADB over USB with the <a href="https://github.com/dikeckaan/u30p-boot-video/releases/latest/download/u30p-usb-adb.zip">USB ADB module</a> installed; flash it once in Magisk, then plug the device in and connect.</p>
       <div class="actions">
         <button class="btn ghost" id="usbConnect">Connect device</button>
         <button class="btn" id="usbInstall" disabled>Install module</button>
@@ -290,8 +291,8 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
         <summary>Connecting doesn't work?</summary>
         <ul class="install">
           <li>Only one program can use the device's USB ADB at a time. If adb runs on this computer, stop it first with <code>adb kill-server</code>.</li>
-          <li>The device's USB mode must include ADB. Network ADB (for example <code>192.168.31.1:55555</code>) can't be reached from a browser; use the commands below instead.</li>
-          <li>The first connection asks the device to trust this browser's key. Accept it on the device, or connect again if it timed out.</li>
+          <li>The device must offer ADB on its USB port. Install the <a href="https://github.com/dikeckaan/u30p-boot-video/releases/latest/download/u30p-usb-adb.zip">USB ADB module</a> once; it keeps network and file transfer working and adds ADB next to them. Browsers can't reach network ADB such as <code>192.168.31.1:55555</code>.</li>
+          <li>On devices that ask to trust this browser's key, accept it on the device, or connect again if it timed out.</li>
           <li>Installing needs root: allow the shell's Magisk superuser request if the device asks.</li>
         </ul>
       </details>
