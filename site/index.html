@@ -165,8 +165,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .actions a { display: inline-block; text-decoration: none; }
 details { margin-top: 4px; }
 summary { cursor: pointer; font-weight: 500; }
-ol.install { padding-left: 1.25em; margin: 10px 0 0; }
-ol.install li { margin: 4px 0; }
+.install { padding-left: 1.25em; margin: 10px 0 0; }
+.install li { margin: 4px 0; }
+.sub { font-weight: 600; margin: 18px 0 6px; }
+.step h2 + .sub { margin-top: 0; }
+#usbLog { max-height: 220px; overflow: auto; white-space: pre-wrap; }
 code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.8125rem; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; margin: 10px 0 0; }
 footer { color: var(--muted); font-size: 0.875rem; margin-top: 28px; }
@@ -271,6 +274,28 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
 
     <div class="step">
       <h2><span class="n">4</span>Install</h2>
+      <p class="sub">Over USB, from this page</p>
+      <p class="hint" style="margin-top:0">Plug the device in with USB debugging on, then connect. Works in Chrome or Edge.</p>
+      <div class="actions">
+        <button class="btn ghost" id="usbConnect">Connect device</button>
+        <button class="btn" id="usbInstall" disabled>Install module</button>
+        <button class="btn ghost" id="usbPick" disabled>Install a zip file…</button>
+        <button class="btn ghost" id="usbReboot" disabled>Reboot</button>
+      </div>
+      <input type="file" id="usbFile" accept=".zip,application/zip" class="sr">
+      <div class="bar" aria-hidden="true"><i id="usbBar"></i></div>
+      <div class="status" id="usbStatus" role="status" aria-live="polite"></div>
+      <pre id="usbLog" hidden></pre>
+      <details>
+        <summary>Connecting doesn't work?</summary>
+        <ul class="install">
+          <li>Only one program can use the device's USB ADB at a time. If adb runs on this computer, stop it first with <code>adb kill-server</code>.</li>
+          <li>The device's USB mode must include ADB. Network ADB (for example <code>192.168.31.1:55555</code>) can't be reached from a browser; use the commands below instead.</li>
+          <li>The first connection asks the device to trust this browser's key. Accept it on the device, or connect again if it timed out.</li>
+          <li>Installing needs root: allow the shell's Magisk superuser request if the device asks.</li>
+        </ul>
+      </details>
+      <p class="sub">Or by hand</p>
       <ol class="install">
         <li>Copy the zip to the device.</li>
         <li>In the Magisk app, open Modules, tap <em>Install from storage</em> and pick the zip.</li>
@@ -477,6 +502,7 @@ adb reboot</pre>
       ].join('\n'));
       mod['system/media/bootanimation.zip'] = [animZip, { level: 0 }];
       const modZip = fflate.zipSync(mod, { level: 6 });
+      window.dispatchEvent(new CustomEvent('u30p:built', { detail: modZip }));
 
       const mu = URL.createObjectURL(new Blob([modZip], { type: 'application/zip' }));
       const au = URL.createObjectURL(new Blob([animZip], { type: 'application/zip' }));
@@ -493,6 +519,109 @@ adb reboot</pre>
   }
   $('build').addEventListener('click', build);
 })();
+</script>
+<script type="module">
+// Install over WebUSB with Tango (site/vendor/tango.js, see scripts/build-tango.sh).
+const $ = id => document.getElementById(id);
+const REMOTE = '/data/local/tmp/u30p-boot-video.zip';
+let built = null, adb = null, busy = false;
+
+const status = (msg, cls = '') => { $('usbStatus').textContent = msg; $('usbStatus').className = 'status ' + cls; };
+const log = line => { const el = $('usbLog'); el.hidden = false; el.textContent += line + '\n'; el.scrollTop = el.scrollHeight; };
+function refresh() {
+  $('usbConnect').textContent = adb ? 'Disconnect' : 'Connect device';
+  $('usbInstall').disabled = busy || !adb || !built;
+  $('usbPick').disabled = busy || !adb;
+  $('usbReboot').disabled = busy || !adb;
+  $('usbConnect').disabled = busy;
+}
+window.addEventListener('u30p:built', e => { built = e.detail; refresh(); });
+
+if (!('usb' in navigator)) {
+  $('usbConnect').disabled = true;
+  status('This browser has no WebUSB. Open the page in Chrome or Edge, or install by hand below.', 'err');
+}
+
+async function shell(cmd) {
+  if (adb.subprocess.shellProtocol) {
+    const r = await adb.subprocess.shellProtocol.spawnWaitText(cmd);
+    return { out: (r.stdout + r.stderr).trim(), code: r.exitCode };
+  }
+  const out = await adb.subprocess.noneProtocol.spawnWaitText(cmd + '; echo "__exit=$?"');
+  const m = out.match(/__exit=(\d+)\s*$/);
+  return { out: out.replace(/__exit=\d+\s*$/, '').trim(), code: m ? Number(m[1]) : -1 };
+}
+
+async function connect() {
+  const { Adb, AdbDaemonTransport, AdbDaemonWebUsbDevice, AdbDaemonWebUsbDeviceManager, AdbWebCredentialStore } = await import('./vendor/tango.js');
+  const device = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
+  if (!device) { status('No device chosen.'); return; }
+  status('Connecting. Accept the debugging prompt on the device if it shows one.');
+  let connection;
+  try { connection = await device.connect(); }
+  catch (e) {
+    if (e instanceof AdbDaemonWebUsbDevice.DeviceBusyError) throw new Error('the USB interface is busy. Stop adb on this computer (adb kill-server) and try again');
+    throw e;
+  }
+  const transport = await AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore: new AdbWebCredentialStore('U30 Pro boot video') });
+  adb = new Adb(transport);
+  transport.disconnected.then(() => { adb = null; status('Device disconnected.'); refresh(); });
+  const model = (await shell('getprop ro.product.model')).out;
+  const magisk = await shell('su -c "magisk -v"');
+  status(magisk.code === 0 ? `Connected to ${model || device.serial}, Magisk ${magisk.out}.` : `Connected to ${model || device.serial}, but root is not available: ${magisk.out || 'su failed'}`, magisk.code === 0 ? 'ok' : 'err');
+}
+
+async function push(bytes) {
+  const CHUNK = 64 * 1024; let off = 0;
+  const file = new ReadableStream({
+    pull(c) {
+      if (off >= bytes.length) { c.close(); return; }
+      c.enqueue(bytes.subarray(off, off + CHUNK)); off += CHUNK;
+      $('usbBar').style.width = (90 * Math.min(off, bytes.length) / bytes.length) + '%';
+      status(`Sending ${(Math.min(off, bytes.length) / 1048576).toFixed(1)} of ${(bytes.length / 1048576).toFixed(1)} MB`);
+    },
+  });
+  const sync = await adb.sync();
+  try { await sync.write({ filename: REMOTE, file, permission: 0o644 }); }
+  finally { await sync.dispose(); }
+}
+
+async function install(bytes) {
+  $('usbLog').textContent = ''; $('usbBar').style.width = '0';
+  await push(bytes);
+  status('Installing with Magisk');
+  const r = await shell(`su -c "magisk --install-module ${REMOTE}"; rc=$?; rm -f ${REMOTE}; exit $rc`);
+  log(r.out);
+  $('usbBar').style.width = '100%';
+  if (r.code !== 0) throw new Error(`Magisk exited with code ${r.code}. See the log above`);
+  status('Installed. Reboot the device to see the new boot video.', 'ok');
+}
+
+function run(fn) {
+  return async (...a) => {
+    if (busy) return;
+    busy = true; refresh();
+    try { await fn(...a); }
+    catch (e) { status((e && e.message ? e.message : String(e)).replace(/^./, c => c.toUpperCase()) + '.', 'err'); }
+    finally { busy = false; refresh(); }
+  };
+}
+
+$('usbConnect').addEventListener('click', run(async () => {
+  if (adb) { await adb.close(); adb = null; status('Disconnected.'); return; }
+  await connect();
+}));
+$('usbInstall').addEventListener('click', run(() => install(built)));
+$('usbPick').addEventListener('click', () => $('usbFile').click());
+$('usbFile').addEventListener('change', run(async () => {
+  const f = $('usbFile').files[0]; $('usbFile').value = '';
+  if (f) await install(new Uint8Array(await f.arrayBuffer()));
+}));
+$('usbReboot').addEventListener('click', run(async () => {
+  status('Rebooting.');
+  await adb.power.reboot();
+}));
+refresh();
 </script>
 </body>
 </html>

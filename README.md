@@ -10,4 +10,6 @@ To change the video, replace `video/boot.mp4` and push.
 
 Web tool: https://kaandikec.com/u30p-boot-video/ — pick any video, adjust framing/trim/fps in the browser, and download a ready-to-flash Magisk zip. Nothing is uploaded; frames are extracted with `<video>` + canvas and zipped with fflate. A zip built there replaces the installed module.
 
+The page can also install over USB (Chrome/Edge, WebUSB): connect, then install the built module or any zip, then reboot. It uses [Tango](https://github.com/yume-chan/ya-webadb), bundled into `site/vendor/tango.js` by `scripts/build-tango.sh`. The device's USB mode must include ADB; network ADB can't be reached from a browser.
+
 Local build: `scripts/build.sh` (requires ffmpeg and zip) → `out/u30p-boot-video.zip`.
