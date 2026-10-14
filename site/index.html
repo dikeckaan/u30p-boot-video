@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U30 Pro Boot Video</title>
+<meta name="description" content="ZTE U30 Pro için videodan Magisk boot animasyonu modülü oluşturur. Her şey tarayıcıda çalışır.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e4e7ea;
+  --panel: #f6f7f8;
+  --ink: #1c2430;
+  --muted: #5d6673;
+  --line: #cfd4da;
+  --accent: #1d5bd8;
+  --accent-ink: #ffffff;
+  --body: #2a2e35;
+  --body-edge: #3a3f47;
+  --screen-off: #050608;
+  --ok: #17803d;
+  --err: #b42318;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181c;
+    --panel: #1d2126;
+    --ink: #e4e7eb;
+    --muted: #98a1ad;
+    --line: #2f353d;
+    --accent: #5b8cf0;
+    --accent-ink: #0c1424;
+    --body: #30353d;
+    --body-edge: #454b55;
+    --ok: #4cc276;
+    --err: #f2786d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15181c; --panel: #1d2126; --ink: #e4e7eb; --muted: #98a1ad; --line: #2f353d;
+  --accent: #5b8cf0; --accent-ink: #0c1424; --body: #30353d; --body-edge: #454b55; --ok: #4cc276; --err: #f2786d;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.5 "Onest", system-ui, sans-serif;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.stage { position: sticky; top: 32px; }
+h1 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.lede { color: var(--muted); margin: 0 0 28px; max-width: 46ch; }
+
+/* The device: the one bold element on the page. */
+.device {
+  background: linear-gradient(160deg, var(--body-edge), var(--body) 40%);
+  border-radius: 36px;
+  padding: 20px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 24px 48px -24px rgba(10,14,20,.55);
+  width: min(100%, 520px);
+}
+.bezel {
+  background: var(--screen-off);
+  border-radius: 14px;
+  padding: 20px;
+  position: relative;
+}
+#preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  border-radius: 2px;
+  background: #000;
+}
+.device-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #aab1bb;
+  font-size: 0.8125rem;
+  padding: 14px 6px 0;
+}
+.led { width: 8px; height: 8px; border-radius: 50%; background: #2f3640; display: inline-block; margin-right: 8px; vertical-align: 1px; }
+.led.on { background: #38d27a; box-shadow: 0 0 8px #38d27a; }
+.empty {
+  position: absolute; inset: 20px;
+  display: grid; place-items: center; text-align: center;
+  color: #8a929d; font-size: 0.9375rem; padding: 24px;
+}
+.empty[hidden] { display: none; }
+.transport { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+.transport .time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.875rem; }
+
+/* Controls */
+.steps { display: grid; gap: 20px; }
+.step {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px 22px;
+}
+.step h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 14px;
+  display: flex; gap: 10px; align-items: baseline;
+}
+.step h2 .n { color: var(--accent); font-variant-numeric: tabular-nums; }
+.row { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; align-items: center; margin-top: 12px; }
+.row label { font-size: 0.9375rem; }
+.row.opt { grid-template-columns: 120px 1fr; }
+.row.opt .seg { justify-self: start; }
+.row output { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.875rem; min-width: 52px; text-align: right; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; flex-wrap: wrap; }
+.seg button {
+  font: inherit; font-size: 0.875rem; border: 0; background: transparent; color: var(--ink);
+  padding: 6px 12px; border-radius: 7px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+.drop.over { border-color: var(--accent); color: var(--ink); }
+.drop strong { color: var(--ink); font-weight: 600; }
+.file-meta { margin-top: 10px; font-size: 0.875rem; color: var(--muted); }
+.linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.btn {
+  font: inherit; font-weight: 600; border: 0; border-radius: 10px; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); padding: 12px 20px;
+}
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; padding: 8px 14px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.hint { font-size: 0.875rem; color: var(--muted); margin: 10px 0 0; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 16px; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .1s linear; }
+.status { margin-top: 10px; font-size: 0.9375rem; min-height: 1.5em; }
+.status.ok { color: var(--ok); }
+.status.err { color: var(--err); }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.actions a { display: inline-block; text-decoration: none; }
+details { margin-top: 4px; }
+summary { cursor: pointer; font-weight: 500; }
+ol.install { padding-left: 1.25em; margin: 10px 0 0; }
+ol.install li { margin: 4px 0; }
+code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.8125rem; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; margin: 10px 0 0; }
+footer { color: var(--muted); font-size: 0.875rem; margin-top: 28px; }
+footer a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: none; padding: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; gap: 28px; padding: 24px 16px 48px; }
+  .stage { position: static; }
+  h1 { font-size: 1.75rem; }
+  .device { border-radius: 26px; padding: 14px; margin: 0 auto; }
+  .bezel { padding: 12px; }
+  .empty { inset: 12px; }
+  .row { grid-template-columns: 92px 1fr auto; }
+  .row.opt { grid-template-columns: 1fr; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="stage" aria-label="Önizleme">
+    <h1>U30 Pro boot videosu</h1>
+    <p class="lede">Bir video seç, kadrajı ayarla, Magisk modülünü indir. Video tarayıcında işlenir, hiçbir yere yüklenmez.</p>
+    <div class="device">
+      <div class="bezel">
+        <canvas id="preview" width="240" height="240"></canvas>
+        <div class="empty" id="empty">Önizleme için bir video seç</div>
+      </div>
+      <div class="device-foot">
+        <span><span class="led" id="led"></span>240×240 ekran, gerçek piksel</span>
+        <span id="frameInfo"></span>
+      </div>
+    </div>
+    <div class="transport">
+      <button class="btn ghost" id="playBtn" disabled>Duraklat</button>
+      <span class="time" id="timeInfo"></span>
+    </div>
+  </section>
+
+  <section class="steps">
+    <div class="step">
+      <h2><span class="n">1</span>Video</h2>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Video dosyası seç">
+        <strong>Video dosyasını buraya bırak</strong> ya da tıklayıp seç<br>
+        <span style="font-size:.875rem">MP4, WebM, MOV: tarayıcının oynatabildiği her format</span>
+      </div>
+      <input type="file" id="file" accept="video/*" class="sr">
+      <div class="file-meta" id="fileMeta">Elinde video yoksa <button class="linkish" id="sample">örnek videoyu kullan</button>.</div>
+    </div>
+
+    <div class="step">
+      <h2><span class="n">2</span>Kadraj ve süre</h2>
+      <div class="seg" role="group" aria-label="Sığdırma">
+        <button data-fit="cover" aria-pressed="true">Ekranı doldur</button>
+        <button data-fit="contain" aria-pressed="false">Tamamını göster</button>
+      </div>
+      <div class="row"><label for="zoom">Yakınlaştır</label><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"><output id="zoomO">1.00×</output></div>
+      <div class="row"><label for="panX">Yatay kaydır</label><input type="range" id="panX" min="-1" max="1" step="0.01" value="0"><output id="panXO">0</output></div>
+      <div class="row"><label for="panY">Dikey kaydır</label><input type="range" id="panY" min="-1" max="1" step="0.01" value="0"><output id="panYO">0</output></div>
+      <div class="row"><label for="bg">Arka plan</label><input type="color" id="bg" value="#000000"><output></output></div>
+      <div class="row"><label for="tStart">Başlangıç</label><input type="range" id="tStart" min="0" max="0" step="0.01" value="0" disabled><output id="tStartO">0.00 sn</output></div>
+      <div class="row"><label for="tEnd">Bitiş</label><input type="range" id="tEnd" min="0" max="0" step="0.01" value="0" disabled><output id="tEndO">0.00 sn</output></div>
+      <p class="hint">Uzun videolar açılışı uzatır ve modülü büyütür. 5–10 saniye idealdir.</p>
+    </div>
+
+    <div class="step">
+      <h2><span class="n">3</span>Oynatma ve çıktı</h2>
+      <div class="row opt"><label>Açılışta</label>
+        <div class="seg" role="group" aria-label="Oynatma">
+          <button data-mode="once" aria-pressed="true">Bir kez oynat, son karede bekle</button>
+          <button data-mode="loop" aria-pressed="false">Açılana kadar döngü</button>
+        </div>
+      </div>
+      <div class="row opt"><label>Kare hızı</label>
+        <div class="seg" role="group" aria-label="Kare hızı">
+          <button data-fps="15" aria-pressed="false">15</button>
+          <button data-fps="20" aria-pressed="false">20</button>
+          <button data-fps="24" aria-pressed="true">24</button>
+          <button data-fps="30" aria-pressed="false">30</button>
+        </div>
+      </div>
+      <div class="row opt"><label>Kare formatı</label>
+        <div class="seg" role="group" aria-label="Kare formatı">
+          <button data-fmt="png" aria-pressed="true">PNG, kayıpsız</button>
+          <button data-fmt="jpg" aria-pressed="false">JPG, küçük</button>
+        </div>
+      </div>
+      <p class="hint" id="estimate">Önce bir video seç.</p>
+      <div class="actions">
+        <button class="btn" id="build" disabled>Modülü oluştur</button>
+      </div>
+      <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="actions" id="downloads" hidden>
+        <a class="btn" id="dlModule" download="u30p-boot-video-custom.zip">Magisk modülünü indir</a>
+        <a class="btn ghost" id="dlAnim" download="bootanimation.zip">Sadece bootanimation.zip</a>
+      </div>
+    </div>
+
+    <div class="step">
+      <h2><span class="n">4</span>Kurulum</h2>
+      <ol class="install">
+        <li>Zip'i cihaza kopyala.</li>
+        <li>Magisk uygulamasında Modüller sekmesinden <em>Depolamadan yükle</em> ile zip'i seç.</li>
+        <li>Cihazı yeniden başlat.</li>
+      </ol>
+      <details>
+        <summary>ADB ile kurulum</summary>
+<pre>adb push u30p-boot-video-custom.zip /data/local/tmp/
+adb shell su -c "magisk --install-module /data/local/tmp/u30p-boot-video-custom.zip"
+adb reboot</pre>
+      </details>
+      <p class="hint">Bu modül kurulu boot video modülünün yerine geçer ve repo güncellemelerini takip etmez. Açılış tamamlanmazsa modül sonraki açılışta kendini kapatır ve orijinal animasyon geri gelir.</p>
+    </div>
+
+    <footer>Kaynak kodu ve otomatik güncellenen sürüm: <a href="https://github.com/dikeckaan/u30p-boot-video">github.com/dikeckaan/u30p-boot-video</a></footer>
+  </section>
+</main>
+
+<video id="video" muted playsinline preload="auto" hidden></video>
+
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" integrity="sha384-DT0Ls0mO7JmjTnT+oBuMhEJzYJO1zUqzuuMXNdnOmOQRIpN2BgSjvBV/j50NngIT" crossorigin="anonymous"></script>
+<script>
+(() => {
+  const W = 240, H = 240;
+  const MODULE_FILES = [
+    'META-INF/com/google/android/update-binary',
+    'META-INF/com/google/android/updater-script',
+    'customize.sh', 'post-fs-data.sh', 'service.sh', 'uninstall.sh',
+  ];
+  const $ = id => document.getElementById(id);
+  const video = $('video'), preview = $('preview'), pctx = preview.getContext('2d');
+  const s = { fit: 'cover', zoom: 1, panX: 0, panY: 0, bg: '#000000', start: 0, end: 0, fps: 24, mode: 'once', fmt: 'png', ready: false, building: false, name: '' };
+  let urls = [];
+
+  // Draw the current video frame into a 240x240 context using the framing settings.
+  function draw(ctx) {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    ctx.fillStyle = s.bg; ctx.fillRect(0, 0, W, H);
+    if (!vw) return;
+    const base = s.fit === 'cover' ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
+    const dw = vw * base * s.zoom, dh = vh * base * s.zoom;
+    const dx = (W - dw) / 2 - s.panX * Math.abs(dw - W) / 2;
+    const dy = (H - dh) / 2 - s.panY * Math.abs(dh - H) / 2;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(video, dx, dy, dw, dh);
+  }
+
+  function loop() {
+    if (s.ready && !s.building) {
+      if (video.currentTime >= s.end || video.currentTime < s.start - 0.05) video.currentTime = s.start;
+      draw(pctx);
+      $('timeInfo').textContent = `${(video.currentTime - s.start).toFixed(1)} / ${(s.end - s.start).toFixed(1)} sn`;
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function frameCount() { return Math.max(1, Math.round((s.end - s.start) * s.fps)); }
+  function updateEstimate() {
+    if (!s.ready) return;
+    const n = frameCount();
+    const per = s.fmt === 'png' ? 110 : 18; // KB per 240x240 frame, rough
+    const mb = (n * per / 1024).toFixed(n * per > 10240 ? 0 : 1);
+    $('estimate').textContent = `${n} kare, yaklaşık ${mb} MB.` + (n > 600 ? ' Bu kadar kare açılışı yavaşlatabilir; süreyi kısaltmayı düşün.' : '');
+    $('frameInfo').textContent = `${n} kare, ${s.fps} fps`;
+  }
+
+  function bindRange(id, key, fmt) {
+    const el = $(id), out = $(id + 'O');
+    const set = () => { s[key] = parseFloat(el.value); if (out) out.textContent = fmt(s[key]); };
+    el.addEventListener('input', () => { set(); onTrim(id); updateEstimate(); });
+    set();
+  }
+  function onTrim(id) {
+    if (id !== 'tStart' && id !== 'tEnd') return;
+    const min = 1 / s.fps;
+    if (s.end - s.start < min) {
+      if (id === 'tStart') { s.start = Math.max(0, s.end - min); $('tStart').value = s.start; }
+      else { s.end = Math.min(video.duration, s.start + min); $('tEnd').value = s.end; }
+    }
+    $('tStartO').textContent = s.start.toFixed(2) + ' sn';
+    $('tEndO').textContent = s.end.toFixed(2) + ' sn';
+    video.currentTime = id === 'tEnd' ? Math.max(s.start, s.end - 1) : s.start;
+  }
+  bindRange('zoom', 'zoom', v => v.toFixed(2) + '×');
+  bindRange('panX', 'panX', v => v.toFixed(2));
+  bindRange('panY', 'panY', v => v.toFixed(2));
+  bindRange('tStart', 'start', v => v.toFixed(2) + ' sn');
+  bindRange('tEnd', 'end', v => v.toFixed(2) + ' sn');
+  $('bg').addEventListener('input', e => { s.bg = e.target.value; });
+
+  function bindSeg(attr, key, parse = v => v) {
+    document.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`[data-${attr}]`).forEach(x => x.setAttribute('aria-pressed', x === b));
+      s[key] = parse(b.dataset[attr]); updateEstimate();
+    }));
+  }
+  bindSeg('fit', 'fit'); bindSeg('mode', 'mode'); bindSeg('fmt', 'fmt'); bindSeg('fps', 'fps', Number);
+
+  // Loading a video
+  function load(src, name, size) {
+    s.ready = false; s.name = name;
+    resetOutput();
+    video.src = src;
+    video.load();
+    $('fileMeta').textContent = `Yükleniyor: ${name}`;
+  }
+  video.addEventListener('loadedmetadata', () => {
+    const d = video.duration;
+    if (!isFinite(d) || !video.videoWidth) { setStatus('Bu video oynatılamadı. Farklı bir format dene (MP4 H.264 en güvenlisi).', 'err'); return; }
+    for (const id of ['tStart', 'tEnd']) { $(id).max = d.toFixed(2); $(id).disabled = false; }
+    s.start = 0; s.end = Math.min(d, 15);
+    $('tStart').value = 0; $('tEnd').value = s.end;
+    $('tStartO').textContent = '0.00 sn'; $('tEndO').textContent = s.end.toFixed(2) + ' sn';
+    $('fileMeta').textContent = `${s.name}: ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} sn` + (d > 15 ? '. İlk 15 saniye seçildi.' : '');
+    $('empty').hidden = true; $('led').classList.add('on');
+    $('build').disabled = false; $('playBtn').disabled = false;
+    s.ready = true; video.loop = false; video.play().catch(() => {});
+    $('playBtn').textContent = 'Duraklat';
+    updateEstimate();
+  });
+  video.addEventListener('error', () => setStatus('Video açılamadı. Dosya bozuk olabilir ya da tarayıcı bu formatı desteklemiyor olabilir.', 'err'));
+  video.addEventListener('ended', () => { if (s.ready && !s.building) { video.currentTime = s.start; video.play().catch(() => {}); } });
+
+  $('playBtn').addEventListener('click', () => {
+    if (video.paused) { video.play(); $('playBtn').textContent = 'Duraklat'; }
+    else { video.pause(); $('playBtn').textContent = 'Oynat'; }
+  });
+
+  const drop = $('drop'), fileIn = $('file');
+  drop.addEventListener('click', () => fileIn.click());
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
+  fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (f) load(URL.createObjectURL(f), f.name, f.size); });
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name, f.size); else if (f) setStatus('Bu bir video dosyası değil.', 'err'); });
+  $('sample').addEventListener('click', () => load('sample.mp4', 'örnek video'));
+
+  function setStatus(msg, cls = '') { const el = $('status'); el.textContent = msg; el.className = 'status ' + cls; }
+  function resetOutput() {
+    urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
+    $('downloads').hidden = true; $('bar').style.width = '0'; setStatus('');
+  }
+
+  function seek(t) {
+    return new Promise((resolve, reject) => {
+      if (Math.abs(video.currentTime - t) < 1e-4) return resolve();
+      const timer = setTimeout(() => { video.removeEventListener('seeked', done); reject(new Error('seek timeout')); }, 5000);
+      function done() { clearTimeout(timer); video.removeEventListener('seeked', done); resolve(); }
+      video.addEventListener('seeked', done);
+      video.currentTime = t;
+    });
+  }
+  const toBytes = (canvas, type, q) => new Promise(r => canvas.toBlob(b => b.arrayBuffer().then(a => r(new Uint8Array(a))), type, q));
+
+  async function build() {
+    s.building = true; resetOutput();
+    $('build').disabled = true; $('playBtn').disabled = true;
+    video.pause();
+    try {
+      const n = frameCount(), fps = s.fps;
+      const ext = s.fmt === 'png' ? 'png' : 'jpg';
+      const type = s.fmt === 'png' ? 'image/png' : 'image/jpeg';
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const ctx = c.getContext('2d');
+      const anim = {};
+      let last;
+      for (let i = 0; i < n; i++) {
+        // Sample the middle of each output frame's time slot.
+        const t = Math.min(s.start + (i + 0.5) / fps, video.duration - 0.001);
+        await seek(t);
+        draw(ctx); pctx.drawImage(c, 0, 0);
+        last = await toBytes(c, type, 0.92);
+        anim[`part0/${String(i).padStart(5, '0')}.${ext}`] = last;
+        $('bar').style.width = (90 * (i + 1) / n) + '%';
+        setStatus(`Kare ${i + 1} / ${n} işleniyor`);
+      }
+      let desc = `${W} ${H} ${fps}\n`;
+      if (s.mode === 'once') { anim[`part1/00000.${ext}`] = last; desc += 'c 1 0 part0\np 0 0 part1\n'; }
+      else desc += 'p 0 0 part0\n';
+      anim['desc.txt'] = fflate.strToU8(desc);
+      setStatus('bootanimation.zip paketleniyor');
+      // bootanimation.zip entries must be stored, not deflated.
+      const animZip = fflate.zipSync(anim, { level: 0 });
+
+      setStatus('Magisk modülü paketleniyor');
+      const mod = {};
+      for (const p of MODULE_FILES) {
+        const res = await fetch('module/' + p);
+        if (!res.ok) throw new Error(`module/${p} indirilemedi (${res.status})`);
+        const exec = p.endsWith('.sh') || p.endsWith('update-binary');
+        mod[p] = [new Uint8Array(await res.arrayBuffer()), exec ? { os: 3, attrs: (0o100755 << 16) >>> 0 } : {}];
+      }
+      const d = new Date(), pad = v => String(v).padStart(2, '0');
+      const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+      mod['module.prop'] = fflate.strToU8([
+        'id=u30p-boot-video',
+        'name=ZTE U30 Pro boot video (custom)',
+        `version=web-${stamp}`,
+        'versionCode=1',
+        'author=kaandikec',
+        `description=Custom boot video built in the browser from "${s.name.replace(/[\r\n]/g, ' ')}": ${n} frames at ${fps} fps, ${s.mode === 'once' ? 'plays once then holds the last frame' : 'loops until boot completes'}. Self-disables if boot fails.`,
+        '',
+      ].join('\n'));
+      mod['system/media/bootanimation.zip'] = [animZip, { level: 0 }];
+      const modZip = fflate.zipSync(mod, { level: 6 });
+
+      const mu = URL.createObjectURL(new Blob([modZip], { type: 'application/zip' }));
+      const au = URL.createObjectURL(new Blob([animZip], { type: 'application/zip' }));
+      urls.push(mu, au);
+      $('dlModule').href = mu; $('dlAnim').href = au;
+      $('downloads').hidden = false; $('bar').style.width = '100%';
+      setStatus(`Modül hazır: ${n} kare, ${(modZip.length / 1048576).toFixed(1)} MB.`, 'ok');
+    } catch (e) {
+      setStatus('Modül oluşturulamadı: ' + e.message, 'err');
+    } finally {
+      s.building = false; $('build').disabled = false; $('playBtn').disabled = false;
+      video.currentTime = s.start; video.play().catch(() => {}); $('playBtn').textContent = 'Duraklat';
+    }
+  }
+  $('build').addEventListener('click', build);
+})();
+</script>
+</body>
+</html>
