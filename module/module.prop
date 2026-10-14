@@ -4,4 +4,3 @@ version=v1.0.0
 versionCode=1
 author=kaandikec
 description=Replaces /system/media/bootanimation.zip with a 240x240 24fps video, played once in full then holds the last frame until boot completes. Self-disables if boot fails.
-updateJson=https://github.com/dikeckaan/u30p-boot-video/releases/latest/download/update.json
