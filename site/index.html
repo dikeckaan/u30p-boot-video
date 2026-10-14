@@ -170,6 +170,8 @@ summary { cursor: pointer; font-weight: 500; }
 .sub { font-weight: 600; margin: 18px 0 6px; }
 .step h2 + .sub { margin-top: 0; }
 .hint a, .install a { color: var(--accent); }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 0.9375rem; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
 #usbLog { max-height: 220px; overflow: auto; white-space: pre-wrap; }
 code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.8125rem; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; white-space: pre; margin: 10px 0 0; }
@@ -283,6 +285,7 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
         <button class="btn ghost" id="usbPick" disabled>Install a zip file…</button>
         <button class="btn ghost" id="usbReboot" disabled>Reboot</button>
       </div>
+      <label class="check"><input type="checkbox" id="usbAutoReboot" checked> Reboot after installing</label>
       <input type="file" id="usbFile" accept=".zip,application/zip" class="sr">
       <div class="bar" aria-hidden="true"><i id="usbBar"></i></div>
       <div class="status" id="usbStatus" role="status" aria-live="polite"></div>
@@ -525,7 +528,7 @@ adb reboot</pre>
 // Install over WebUSB with Tango (site/vendor/tango.js, see scripts/build-tango.sh).
 const $ = id => document.getElementById(id);
 const REMOTE = '/data/local/tmp/u30p-boot-video.zip';
-let built = null, adb = null, busy = false;
+let built = null, adb = null, busy = false, rebooting = false;
 
 const status = (msg, cls = '') => { $('usbStatus').textContent = msg; $('usbStatus').className = 'status ' + cls; };
 const log = line => { const el = $('usbLog'); el.hidden = false; el.textContent += line + '\n'; el.scrollTop = el.scrollHeight; };
@@ -566,7 +569,12 @@ async function connect() {
   }
   const transport = await AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore: new AdbWebCredentialStore('U30 Pro boot video') });
   adb = new Adb(transport);
-  transport.disconnected.then(() => { adb = null; status('Device disconnected.'); refresh(); });
+  rebooting = false;
+  transport.disconnected.then(() => {
+    adb = null;
+    status(rebooting ? 'Device is restarting. Connect again after it has booted.' : 'Device disconnected.', rebooting ? 'ok' : '');
+    refresh();
+  });
   const model = (await shell('getprop ro.product.model')).out;
   const magisk = await shell('su -c "magisk -v"');
   status(magisk.code === 0 ? `Connected to ${model || device.serial}, Magisk ${magisk.out}.` : `Connected to ${model || device.serial}, but root is not available: ${magisk.out || 'su failed'}`, magisk.code === 0 ? 'ok' : 'err');
@@ -595,7 +603,17 @@ async function install(bytes) {
   log(r.out);
   $('usbBar').style.width = '100%';
   if (r.code !== 0) throw new Error(`Magisk exited with code ${r.code}. See the log above`);
+  if ($('usbAutoReboot').checked) { await reboot('Installed. Rebooting; the new boot video plays on startup.'); return; }
   status('Installed. Reboot the device to see the new boot video.', 'ok');
+  $('usbReboot').classList.remove('ghost');
+}
+
+async function reboot(msg = 'Rebooting.') {
+  $('usbReboot').classList.add('ghost');
+  rebooting = true;
+  status(msg, 'ok');
+  // The connection drops while the device restarts, so a failed reply is expected.
+  await adb.power.reboot().catch(() => {});
 }
 
 function run(fn) {
@@ -618,10 +636,7 @@ $('usbFile').addEventListener('change', run(async () => {
   const f = $('usbFile').files[0]; $('usbFile').value = '';
   if (f) await install(new Uint8Array(await f.arrayBuffer()));
 }));
-$('usbReboot').addEventListener('click', run(async () => {
-  status('Rebooting.');
-  await adb.power.reboot();
-}));
+$('usbReboot').addEventListener('click', run(() => reboot()));
 refresh();
 </script>
 </body>
