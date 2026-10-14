@@ -8,6 +8,6 @@ Magisk module that replaces the ZTE U30 Pro (MU5358, 240x240 screen) boot animat
 
 To change the video, replace `video/boot.mp4` and push.
 
-Web tool: https://dikeckaan.github.io/u30p-boot-video/ — pick any video, adjust framing/trim/fps in the browser, and download a ready-to-flash Magisk zip. Nothing is uploaded; frames are extracted with `<video>` + canvas and zipped with fflate. A zip built there replaces the installed module and does not follow repo updates.
+Web tool: https://kaandikec.com/u30p-boot-video/ — pick any video, adjust framing/trim/fps in the browser, and download a ready-to-flash Magisk zip. Nothing is uploaded; frames are extracted with `<video>` + canvas and zipped with fflate. A zip built there replaces the installed module and does not follow repo updates.
 
 Local build: `scripts/build.sh` (requires ffmpeg and zip) → `out/u30p-boot-video.zip`.

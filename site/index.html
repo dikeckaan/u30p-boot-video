@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>U30 Pro Boot Video</title>
-<meta name="description" content="ZTE U30 Pro için videodan Magisk boot animasyonu modülü oluşturur. Her şey tarayıcıda çalışır.">
+<meta name="description" content="Turn any video into a Magisk boot animation module for the ZTE U30 Pro. Runs entirely in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -190,21 +190,21 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
 </head>
 <body>
 <main class="wrap">
-  <section class="stage" aria-label="Önizleme">
-    <h1>U30 Pro boot videosu</h1>
-    <p class="lede">Bir video seç, kadrajı ayarla, Magisk modülünü indir. Video tarayıcında işlenir, hiçbir yere yüklenmez.</p>
+  <section class="stage" aria-label="Preview">
+    <h1>U30 Pro boot video</h1>
+    <p class="lede">Pick a video, frame it, download the Magisk module. The video is processed in your browser and never uploaded.</p>
     <div class="device">
       <div class="bezel">
         <canvas id="preview" width="240" height="240"></canvas>
-        <div class="empty" id="empty">Önizleme için bir video seç</div>
+        <div class="empty" id="empty">Choose a video to preview it</div>
       </div>
       <div class="device-foot">
-        <span><span class="led" id="led"></span>240×240 ekran, gerçek piksel</span>
+        <span><span class="led" id="led"></span>240×240 screen, actual pixels</span>
         <span id="frameInfo"></span>
       </div>
     </div>
     <div class="transport">
-      <button class="btn ghost" id="playBtn" disabled>Duraklat</button>
+      <button class="btn ghost" id="playBtn" disabled>Pause</button>
       <span class="time" id="timeInfo"></span>
     </div>
   </section>
@@ -212,80 +212,80 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
   <section class="steps">
     <div class="step">
       <h2><span class="n">1</span>Video</h2>
-      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Video dosyası seç">
-        <strong>Video dosyasını buraya bırak</strong> ya da tıklayıp seç<br>
-        <span style="font-size:.875rem">MP4, WebM, MOV: tarayıcının oynatabildiği her format</span>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a video file">
+        <strong>Drop a video here</strong> or click to choose one<br>
+        <span style="font-size:.875rem">MP4, WebM, MOV: anything your browser can play</span>
       </div>
       <input type="file" id="file" accept="video/*" class="sr">
-      <div class="file-meta" id="fileMeta">Elinde video yoksa <button class="linkish" id="sample">örnek videoyu kullan</button>.</div>
+      <div class="file-meta" id="fileMeta">No video handy? <button class="linkish" id="sample">Use the sample video</button>.</div>
     </div>
 
     <div class="step">
-      <h2><span class="n">2</span>Kadraj ve süre</h2>
-      <div class="seg" role="group" aria-label="Sığdırma">
-        <button data-fit="cover" aria-pressed="true">Ekranı doldur</button>
-        <button data-fit="contain" aria-pressed="false">Tamamını göster</button>
+      <h2><span class="n">2</span>Framing and length</h2>
+      <div class="seg" role="group" aria-label="Fit">
+        <button data-fit="cover" aria-pressed="true">Fill screen</button>
+        <button data-fit="contain" aria-pressed="false">Show whole video</button>
       </div>
-      <div class="row"><label for="zoom">Yakınlaştır</label><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"><output id="zoomO">1.00×</output></div>
-      <div class="row"><label for="panX">Yatay kaydır</label><input type="range" id="panX" min="-1" max="1" step="0.01" value="0"><output id="panXO">0</output></div>
-      <div class="row"><label for="panY">Dikey kaydır</label><input type="range" id="panY" min="-1" max="1" step="0.01" value="0"><output id="panYO">0</output></div>
-      <div class="row"><label for="bg">Arka plan</label><input type="color" id="bg" value="#000000"><output></output></div>
-      <div class="row"><label for="tStart">Başlangıç</label><input type="range" id="tStart" min="0" max="0" step="0.01" value="0" disabled><output id="tStartO">0.00 sn</output></div>
-      <div class="row"><label for="tEnd">Bitiş</label><input type="range" id="tEnd" min="0" max="0" step="0.01" value="0" disabled><output id="tEndO">0.00 sn</output></div>
-      <p class="hint">Uzun videolar açılışı uzatır ve modülü büyütür. 5–10 saniye idealdir.</p>
+      <div class="row"><label for="zoom">Zoom</label><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"><output id="zoomO">1.00×</output></div>
+      <div class="row"><label for="panX">Horizontal</label><input type="range" id="panX" min="-1" max="1" step="0.01" value="0"><output id="panXO">0</output></div>
+      <div class="row"><label for="panY">Vertical</label><input type="range" id="panY" min="-1" max="1" step="0.01" value="0"><output id="panYO">0</output></div>
+      <div class="row"><label for="bg">Background</label><input type="color" id="bg" value="#000000"><output></output></div>
+      <div class="row"><label for="tStart">Start</label><input type="range" id="tStart" min="0" max="0" step="0.01" value="0" disabled><output id="tStartO">0.00 s</output></div>
+      <div class="row"><label for="tEnd">End</label><input type="range" id="tEnd" min="0" max="0" step="0.01" value="0" disabled><output id="tEndO">0.00 s</output></div>
+      <p class="hint">Longer videos slow down boot and make the module bigger. 5–10 seconds works best.</p>
     </div>
 
     <div class="step">
-      <h2><span class="n">3</span>Oynatma ve çıktı</h2>
-      <div class="row opt"><label>Açılışta</label>
-        <div class="seg" role="group" aria-label="Oynatma">
-          <button data-mode="once" aria-pressed="true">Bir kez oynat, son karede bekle</button>
-          <button data-mode="loop" aria-pressed="false">Açılana kadar döngü</button>
+      <h2><span class="n">3</span>Playback and output</h2>
+      <div class="row opt"><label>On boot</label>
+        <div class="seg" role="group" aria-label="Playback">
+          <button data-mode="once" aria-pressed="true">Play once, hold last frame</button>
+          <button data-mode="loop" aria-pressed="false">Loop until booted</button>
         </div>
       </div>
-      <div class="row opt"><label>Kare hızı</label>
-        <div class="seg" role="group" aria-label="Kare hızı">
+      <div class="row opt"><label>Frame rate</label>
+        <div class="seg" role="group" aria-label="Frame rate">
           <button data-fps="15" aria-pressed="false">15</button>
           <button data-fps="20" aria-pressed="false">20</button>
           <button data-fps="24" aria-pressed="true">24</button>
           <button data-fps="30" aria-pressed="false">30</button>
         </div>
       </div>
-      <div class="row opt"><label>Kare formatı</label>
-        <div class="seg" role="group" aria-label="Kare formatı">
-          <button data-fmt="png" aria-pressed="true">PNG, kayıpsız</button>
-          <button data-fmt="jpg" aria-pressed="false">JPG, küçük</button>
+      <div class="row opt"><label>Frame format</label>
+        <div class="seg" role="group" aria-label="Frame format">
+          <button data-fmt="png" aria-pressed="true">PNG, lossless</button>
+          <button data-fmt="jpg" aria-pressed="false">JPG, smaller</button>
         </div>
       </div>
-      <p class="hint" id="estimate">Önce bir video seç.</p>
+      <p class="hint" id="estimate">Choose a video first.</p>
       <div class="actions">
-        <button class="btn" id="build" disabled>Modülü oluştur</button>
+        <button class="btn" id="build" disabled>Build module</button>
       </div>
       <div class="bar" aria-hidden="true"><i id="bar"></i></div>
       <div class="status" id="status" role="status" aria-live="polite"></div>
       <div class="actions" id="downloads" hidden>
-        <a class="btn" id="dlModule" download="u30p-boot-video-custom.zip">Magisk modülünü indir</a>
-        <a class="btn ghost" id="dlAnim" download="bootanimation.zip">Sadece bootanimation.zip</a>
+        <a class="btn" id="dlModule" download="u30p-boot-video-custom.zip">Download Magisk module</a>
+        <a class="btn ghost" id="dlAnim" download="bootanimation.zip">bootanimation.zip only</a>
       </div>
     </div>
 
     <div class="step">
-      <h2><span class="n">4</span>Kurulum</h2>
+      <h2><span class="n">4</span>Install</h2>
       <ol class="install">
-        <li>Zip'i cihaza kopyala.</li>
-        <li>Magisk uygulamasında Modüller sekmesinden <em>Depolamadan yükle</em> ile zip'i seç.</li>
-        <li>Cihazı yeniden başlat.</li>
+        <li>Copy the zip to the device.</li>
+        <li>In the Magisk app, open Modules, tap <em>Install from storage</em> and pick the zip.</li>
+        <li>Reboot the device.</li>
       </ol>
       <details>
-        <summary>ADB ile kurulum</summary>
+        <summary>Install with ADB</summary>
 <pre>adb push u30p-boot-video-custom.zip /data/local/tmp/
 adb shell su -c "magisk --install-module /data/local/tmp/u30p-boot-video-custom.zip"
 adb reboot</pre>
       </details>
-      <p class="hint">Bu modül kurulu boot video modülünün yerine geçer ve repo güncellemelerini takip etmez. Açılış tamamlanmazsa modül sonraki açılışta kendini kapatır ve orijinal animasyon geri gelir.</p>
+      <p class="hint">This module replaces any installed boot video module and does not follow repository updates. If a boot does not complete, the module disables itself on the next boot and the stock animation comes back.</p>
     </div>
 
-    <footer>Kaynak kodu ve otomatik güncellenen sürüm: <a href="https://github.com/dikeckaan/u30p-boot-video">github.com/dikeckaan/u30p-boot-video</a></footer>
+    <footer>Source code and the auto-updating release: <a href="https://github.com/dikeckaan/u30p-boot-video">github.com/dikeckaan/u30p-boot-video</a></footer>
   </section>
 </main>
 
@@ -322,7 +322,7 @@ adb reboot</pre>
     if (s.ready && !s.building) {
       if (video.currentTime >= s.end || video.currentTime < s.start - 0.05) video.currentTime = s.start;
       draw(pctx);
-      $('timeInfo').textContent = `${(video.currentTime - s.start).toFixed(1)} / ${(s.end - s.start).toFixed(1)} sn`;
+      $('timeInfo').textContent = `${(video.currentTime - s.start).toFixed(1)} / ${(s.end - s.start).toFixed(1)} s`;
     }
     requestAnimationFrame(loop);
   }
@@ -332,10 +332,10 @@ adb reboot</pre>
   function updateEstimate() {
     if (!s.ready) return;
     const n = frameCount();
-    const per = s.fmt === 'png' ? 110 : 18; // KB per 240x240 frame, rough
+    const per = s.fmt === 'png' ? 110 : 22; // KB per 240x240 frame, rough
     const mb = (n * per / 1024).toFixed(n * per > 10240 ? 0 : 1);
-    $('estimate').textContent = `${n} kare, yaklaşık ${mb} MB.` + (n > 600 ? ' Bu kadar kare açılışı yavaşlatabilir; süreyi kısaltmayı düşün.' : '');
-    $('frameInfo').textContent = `${n} kare, ${s.fps} fps`;
+    $('estimate').textContent = `${n} frames, about ${mb} MB.` + (n > 600 ? ' That many frames can slow down boot; consider trimming.' : '');
+    $('frameInfo').textContent = `${n} frames, ${s.fps} fps`;
   }
 
   function bindRange(id, key, fmt) {
@@ -351,15 +351,15 @@ adb reboot</pre>
       if (id === 'tStart') { s.start = Math.max(0, s.end - min); $('tStart').value = s.start; }
       else { s.end = Math.min(video.duration, s.start + min); $('tEnd').value = s.end; }
     }
-    $('tStartO').textContent = s.start.toFixed(2) + ' sn';
-    $('tEndO').textContent = s.end.toFixed(2) + ' sn';
+    $('tStartO').textContent = s.start.toFixed(2) + ' s';
+    $('tEndO').textContent = s.end.toFixed(2) + ' s';
     video.currentTime = id === 'tEnd' ? Math.max(s.start, s.end - 1) : s.start;
   }
   bindRange('zoom', 'zoom', v => v.toFixed(2) + '×');
   bindRange('panX', 'panX', v => v.toFixed(2));
   bindRange('panY', 'panY', v => v.toFixed(2));
-  bindRange('tStart', 'start', v => v.toFixed(2) + ' sn');
-  bindRange('tEnd', 'end', v => v.toFixed(2) + ' sn');
+  bindRange('tStart', 'start', v => v.toFixed(2) + ' s');
+  bindRange('tEnd', 'end', v => v.toFixed(2) + ' s');
   $('bg').addEventListener('input', e => { s.bg = e.target.value; });
 
   function bindSeg(attr, key, parse = v => v) {
@@ -376,28 +376,28 @@ adb reboot</pre>
     resetOutput();
     video.src = src;
     video.load();
-    $('fileMeta').textContent = `Yükleniyor: ${name}`;
+    $('fileMeta').textContent = `Loading ${name}`;
   }
   video.addEventListener('loadedmetadata', () => {
     const d = video.duration;
-    if (!isFinite(d) || !video.videoWidth) { setStatus('Bu video oynatılamadı. Farklı bir format dene (MP4 H.264 en güvenlisi).', 'err'); return; }
+    if (!isFinite(d) || !video.videoWidth) { setStatus('This video can\'t be played. Try another format; MP4 with H.264 is the safest.', 'err'); return; }
     for (const id of ['tStart', 'tEnd']) { $(id).max = d.toFixed(2); $(id).disabled = false; }
     s.start = 0; s.end = Math.min(d, 15);
     $('tStart').value = 0; $('tEnd').value = s.end;
-    $('tStartO').textContent = '0.00 sn'; $('tEndO').textContent = s.end.toFixed(2) + ' sn';
-    $('fileMeta').textContent = `${s.name}: ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} sn` + (d > 15 ? '. İlk 15 saniye seçildi.' : '');
+    $('tStartO').textContent = '0.00 s'; $('tEndO').textContent = s.end.toFixed(2) + ' s';
+    $('fileMeta').textContent = `${s.name}: ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} s` + (d > 15 ? '. The first 15 seconds are selected.' : '');
     $('empty').hidden = true; $('led').classList.add('on');
     $('build').disabled = false; $('playBtn').disabled = false;
     s.ready = true; video.loop = false; video.play().catch(() => {});
-    $('playBtn').textContent = 'Duraklat';
+    $('playBtn').textContent = 'Pause';
     updateEstimate();
   });
-  video.addEventListener('error', () => setStatus('Video açılamadı. Dosya bozuk olabilir ya da tarayıcı bu formatı desteklemiyor olabilir.', 'err'));
+  video.addEventListener('error', () => setStatus('The video could not be opened. The file may be damaged, or your browser may not support this format.', 'err'));
   video.addEventListener('ended', () => { if (s.ready && !s.building) { video.currentTime = s.start; video.play().catch(() => {}); } });
 
   $('playBtn').addEventListener('click', () => {
-    if (video.paused) { video.play(); $('playBtn').textContent = 'Duraklat'; }
-    else { video.pause(); $('playBtn').textContent = 'Oynat'; }
+    if (video.paused) { video.play(); $('playBtn').textContent = 'Pause'; }
+    else { video.pause(); $('playBtn').textContent = 'Play'; }
   });
 
   const drop = $('drop'), fileIn = $('file');
@@ -406,8 +406,8 @@ adb reboot</pre>
   fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (f) load(URL.createObjectURL(f), f.name, f.size); });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name, f.size); else if (f) setStatus('Bu bir video dosyası değil.', 'err'); });
-  $('sample').addEventListener('click', () => load('sample.mp4', 'örnek video'));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name, f.size); else if (f) setStatus('That file is not a video.', 'err'); });
+  $('sample').addEventListener('click', () => load('sample.mp4', 'sample video'));
 
   function setStatus(msg, cls = '') { const el = $('status'); el.textContent = msg; el.className = 'status ' + cls; }
   function resetOutput() {
@@ -446,21 +446,21 @@ adb reboot</pre>
         last = await toBytes(c, type, 0.92);
         anim[`part0/${String(i).padStart(5, '0')}.${ext}`] = last;
         $('bar').style.width = (90 * (i + 1) / n) + '%';
-        setStatus(`Kare ${i + 1} / ${n} işleniyor`);
+        setStatus(`Rendering frame ${i + 1} of ${n}`);
       }
       let desc = `${W} ${H} ${fps}\n`;
       if (s.mode === 'once') { anim[`part1/00000.${ext}`] = last; desc += 'c 1 0 part0\np 0 0 part1\n'; }
       else desc += 'p 0 0 part0\n';
       anim['desc.txt'] = fflate.strToU8(desc);
-      setStatus('bootanimation.zip paketleniyor');
+      setStatus('Packing bootanimation.zip');
       // bootanimation.zip entries must be stored, not deflated.
       const animZip = fflate.zipSync(anim, { level: 0 });
 
-      setStatus('Magisk modülü paketleniyor');
+      setStatus('Packing Magisk module');
       const mod = {};
       for (const p of MODULE_FILES) {
         const res = await fetch('module/' + p);
-        if (!res.ok) throw new Error(`module/${p} indirilemedi (${res.status})`);
+        if (!res.ok) throw new Error(`Could not fetch module/${p} (${res.status})`);
         const exec = p.endsWith('.sh') || p.endsWith('update-binary');
         mod[p] = [new Uint8Array(await res.arrayBuffer()), exec ? { os: 3, attrs: (0o100755 << 16) >>> 0 } : {}];
       }
@@ -483,12 +483,12 @@ adb reboot</pre>
       urls.push(mu, au);
       $('dlModule').href = mu; $('dlAnim').href = au;
       $('downloads').hidden = false; $('bar').style.width = '100%';
-      setStatus(`Modül hazır: ${n} kare, ${(modZip.length / 1048576).toFixed(1)} MB.`, 'ok');
+      setStatus(`Module built: ${n} frames, ${(modZip.length / 1048576).toFixed(1)} MB.`, 'ok');
     } catch (e) {
-      setStatus('Modül oluşturulamadı: ' + e.message, 'err');
+      setStatus('Could not build the module: ' + e.message, 'err');
     } finally {
       s.building = false; $('build').disabled = false; $('playBtn').disabled = false;
-      video.currentTime = s.start; video.play().catch(() => {}); $('playBtn').textContent = 'Duraklat';
+      video.currentTime = s.start; video.play().catch(() => {}); $('playBtn').textContent = 'Pause';
     }
   }
   $('build').addEventListener('click', build);
