@@ -214,7 +214,7 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
 <main class="wrap">
   <section class="stage" aria-label="Preview">
     <h1>U30 Pro boot video</h1>
-    <p class="lede">Pick a video or GIF, frame it, download the Magisk module. Everything is processed in your browser and never uploaded.</p>
+    <p class="lede">Pick a video, GIF or WebP, frame it, download the Magisk module. Everything is processed in your browser and never uploaded.</p>
     <div class="device">
       <div class="bezel">
         <canvas id="preview" width="240" height="240"></canvas>
@@ -240,12 +240,12 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
     <div class="step">
       <h2><span class="n">1</span>Video</h2>
       <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a video file">
-        <strong>Drop a video or GIF here</strong> or click to choose one<br>
-        <span style="font-size:.875rem">MP4, WebM, MOV, GIF. You can also paste a file or link anywhere on the page.</span>
+        <strong>Drop a video, GIF or WebP here</strong> or click to choose one<br>
+        <span style="font-size:.875rem">MP4, WebM, MOV, GIF, animated WebP, or a still image. You can also paste a file or link anywhere on the page.</span>
       </div>
-      <input type="file" id="file" accept="video/*,image/gif,.gif" class="sr">
+      <input type="file" id="file" accept="video/*,image/*,.gif,.webp" class="sr">
       <form class="url-row" id="urlForm">
-        <input type="url" id="urlIn" placeholder="Or paste a GIPHY, Tenor or other GIF/video link" aria-label="GIF or video link" required>
+        <input type="url" id="urlIn" placeholder="Or paste a GIPHY, Tenor or other GIF, WebP or video link" aria-label="GIF, WebP or video link" required>
         <button class="btn ghost" type="submit">Load link</button>
       </form>
       <div class="file-meta" id="fileMeta">No video handy? <button class="linkish" id="sample">Use the sample video</button>.</div>
@@ -372,15 +372,22 @@ adb reboot</pre>
   const $ = id => document.getElementById(id);
   const videoEl = $('video'), preview = $('preview'), pctx = preview.getContext('2d');
   videoEl.image = videoEl;
-  // Plays a decoded GIF through the subset of the HTMLVideoElement API the editor uses
-  // (currentTime, play/pause, seeking, playbackRate, seeked/loadedmetadata events).
-  class GifPlayer extends EventTarget {
+  const STILL_SECONDS = 5;
+  // Plays decoded image frames (GIF, animated WebP, still images) through the subset of the
+  // HTMLVideoElement API the editor uses (currentTime, play/pause, seeking, playbackRate, events).
+  class FramePlayer extends EventTarget {
     constructor() { super(); this.unload(); }
     unload() {
       if (this.frames) { this.pause(); this.frames.forEach(f => f.bmp.close()); }
-      Object.assign(this, { frames: [], _t: 0, paused: true, ended: false, seeking: false, playbackRate: 1, loop: false, videoWidth: 0, videoHeight: 0, duration: NaN, image: null });
+      Object.assign(this, { frames: [], kind: '', note: '', _t: 0, paused: true, ended: false, seeking: false, playbackRate: 1, loop: false, videoWidth: 0, videoHeight: 0, duration: NaN, image: null });
     }
-    async load(buf) {
+    _ready(kind, frames, w, h, duration, note = '') {
+      this.unload();
+      if (frames.length === 1) duration = STILL_SECONDS;
+      Object.assign(this, { kind, note, frames, videoWidth: w, videoHeight: h, duration, image: frames[0].bmp });
+      this.dispatchEvent(new Event('loadedmetadata'));
+    }
+    async loadGif(buf) {
       const { parseGIF, decompressFrames } = await import('./vendor/gifuct.js');
       const gif = parseGIF(buf), raw = decompressFrames(gif, true);
       if (!raw.length) throw new Error('the GIF has no frames');
@@ -401,9 +408,33 @@ adb reboot</pre>
         if (f.disposalType === 2) cx.clearRect(left, top, width, height);
         else if (before) cx.putImageData(before, 0, 0);
       }
-      this.unload();
-      Object.assign(this, { frames, videoWidth: w, videoHeight: h, duration: t, image: frames[0].bmp });
-      this.dispatchEvent(new Event('loadedmetadata'));
+      this._ready('GIF', frames, w, h, t);
+    }
+    // Animated WebP (and other animated images) via WebCodecs; frames come out composited.
+    async loadImage(blob, label) {
+      const type = blob.type || 'image/webp';
+      if ('ImageDecoder' in window && await ImageDecoder.isTypeSupported(type)) {
+        const dec = new ImageDecoder({ data: await blob.arrayBuffer(), type });
+        try {
+          await dec.tracks.ready; await dec.completed;
+          const count = dec.tracks.selectedTrack.frameCount;
+          const frames = []; let t = 0, w = 0, h = 0;
+          for (let i = 0; i < count; i++) {
+            const { image } = await dec.decode({ frameIndex: i });
+            w = image.displayWidth; h = image.displayHeight;
+            frames.push({ start: t, bmp: await createImageBitmap(image) });
+            // duration is in microseconds; treat missing or tiny delays like browsers do.
+            const ms = (image.duration || 0) / 1000;
+            t += count === 1 ? STILL_SECONDS : (ms <= 10 ? 100 : ms) / 1000;
+            image.close();
+          }
+          return this._ready(count === 1 ? `${label} image` : label, frames, w, h, t);
+        } finally { dec.close(); }
+      }
+      // No WebCodecs: the browser can still show the first frame.
+      const bmp = await createImageBitmap(blob);
+      this._ready(`${label} image`, [{ start: 0, bmp }], bmp.width, bmp.height, STILL_SECONDS,
+        'This browser only shows the first frame of animated images; use Chrome, Edge or Firefox for animation.');
     }
     _render() {
       let lo = 0, hi = this.frames.length - 1;
@@ -431,7 +462,7 @@ adb reboot</pre>
     }
     pause() { this.paused = true; cancelAnimationFrame(this._raf); }
   }
-  const gif = new GifPlayer();
+  const gif = new FramePlayer();
   const onMedia = (ev, fn) => { videoEl.addEventListener(ev, fn); gif.addEventListener(ev, fn); };
 
   let video = videoEl;
@@ -693,7 +724,16 @@ adb reboot</pre>
 
   // Loading a video or GIF. Everything arrives as a Blob, so the canvas never gets tainted.
   let loadId = 0, srcUrl = null;
-  const isGif = async blob => blob.type === 'image/gif' || new TextDecoder().decode(await blob.slice(0, 4).arrayBuffer()) === 'GIF8';
+  // Sniff the real format from the first bytes; links often come with a wrong or missing type.
+  async function kindOf(blob) {
+    const b = new Uint8Array(await blob.slice(0, 16).arrayBuffer()), str = (i, n) => String.fromCharCode(...b.slice(i, i + n));
+    if (str(0, 4) === 'GIF8') return 'gif';
+    if (str(0, 4) === 'RIFF' && str(8, 4) === 'WEBP') return 'webp';
+    if (b[0] === 0x89 && str(1, 3) === 'PNG') return 'png';
+    if (b[0] === 0xff && b[1] === 0xd8) return 'jpeg';
+    if (blob.type.startsWith('image/')) return 'image';
+    return 'video';
+  }
   async function load(blob, name) {
     const id = ++loadId;
     s.ready = false; s.name = name;
@@ -701,13 +741,16 @@ adb reboot</pre>
     $('fileMeta').textContent = `Loading ${name}`;
     video.pause();
     if (srcUrl) { URL.revokeObjectURL(srcUrl); srcUrl = null; }
-    if (await isGif(blob)) {
+    const kind = await kindOf(blob);
+    if (kind !== 'video') {
       videoEl.removeAttribute('src'); videoEl.load();
       video = gif;
+      const label = { gif: 'GIF', webp: 'WebP', png: 'PNG', jpeg: 'JPEG' }[kind] || 'Image';
       try {
-        const buf = await blob.arrayBuffer();
-        if (id === loadId) await gif.load(buf);
-      } catch (err) { if (id === loadId) setStatus(`The GIF could not be read: ${err.message}.`, 'err'); }
+        if (id !== loadId) return;
+        if (kind === 'gif') await gif.loadGif(await blob.arrayBuffer());
+        else await gif.loadImage(blob.type ? blob : new Blob([blob], { type: `image/${kind}` }), label);
+      } catch (err) { if (id === loadId) setStatus(`The ${label} could not be read: ${err.message || err}.`, 'err'); }
     } else {
       gif.unload();
       video = videoEl;
@@ -717,8 +760,9 @@ adb reboot</pre>
   }
   const loadFile = f => {
     if (!f) return;
-    if (f.type.startsWith('video/') || f.type === 'image/gif' || /\.gif$/i.test(f.name)) load(f, f.name);
-    else setStatus('That file is not a video or a GIF.', 'err');
+    // Unknown types are sniffed in load(); only clearly non-media files are turned away.
+    if (/^(video|image)\//.test(f.type) || !f.type || f.type === 'application/octet-stream' || /\.(gif|webp|png|jpe?g)$/i.test(f.name)) load(f, f.name);
+    else setStatus('That file is not a video, GIF or image.', 'err');
   };
 
   // Direct media links for GIPHY and Tenor; their small MP4 versions are tried first.
@@ -747,7 +791,7 @@ adb reboot</pre>
         const res = await fetch(url);
         if (!res.ok) continue;
         const blob = await res.blob();
-        if (!(await isGif(blob)) && !blob.type.startsWith('video/') && blob.type !== 'application/octet-stream') continue;
+        if (!/^(video|image)\//.test(blob.type) && blob.type !== 'application/octet-stream' && await kindOf(blob) === 'video') continue;
         const name = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).slice(-2).join('/'));
         return load(blob, name);
       } catch { /* try the next candidate */ }
@@ -763,13 +807,14 @@ adb reboot</pre>
     for (const k of ['start', 'end']) for (const el of [ui[k].range, ui[k].num]) el.max = d.toFixed(2);
     e.start = 0; e.end = +Math.min(d, 15).toFixed(2); sync('start'); sync('end');
     s.p = 0;
-    const kind = video === gif ? `GIF, ${gif.frames.length} frames` : 'video';
+    const kind = video === videoEl ? 'video' : gif.frames.length > 1 ? `${gif.kind}, ${gif.frames.length} frames` : gif.kind;
     $('fileMeta').textContent = `${s.name}: ${kind}, ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} s` + (d > 15 ? '. The first 15 seconds are selected.' : '');
     $('empty').hidden = true; $('led').classList.add('on');
     $('build').disabled = false; $('playBtn').disabled = false; $('scrub').disabled = false;
     s.ready = true; video.loop = false; video.currentTime = 0;
     setPlaying(true);
     updateEstimate();
+    if (video === gif && gif.note) setStatus(gif.note);
   });
   videoEl.addEventListener('error', () => { if (video === videoEl && videoEl.getAttribute('src')) setStatus('The video could not be opened. The file may be damaged, or your browser may not support this format.', 'err'); });
 
