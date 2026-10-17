@@ -108,6 +108,19 @@ h1 {
 }
 .empty[hidden] { display: none; }
 .transport { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+.transport input[type=range] { flex: 1; min-width: 0; }
+.view-opts { margin-top: 4px; }
+.view-opts .hint { display: block; margin-top: 6px; }
+#preview { touch-action: none; cursor: grab; }
+#preview:active { cursor: grabbing; }
+#preview.overscan { image-rendering: auto; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.tools .btn.ghost { padding: 6px 12px; font-size: 0.875rem; }
+.tools .btn.ghost[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ctl { display: grid; grid-template-columns: 104px minmax(0, 1fr) 72px 24px; gap: 10px; align-items: center; margin-top: 8px; }
+.ctl label { font-size: 0.9375rem; user-select: none; }
+.ctl .unit { color: var(--muted); font-size: 0.8125rem; }
+.ctl input[type=number] { width: 100%; font: inherit; font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; text-align: right; }
 .transport .time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.875rem; }
 
 /* Controls */
@@ -190,6 +203,7 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
   .empty { inset: 12px; }
   .row { grid-template-columns: 92px 1fr auto; }
   .row.opt { grid-template-columns: 1fr; gap: 6px; }
+  .ctl { grid-template-columns: 84px minmax(0, 1fr) 64px 20px; gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
 </style>
@@ -205,13 +219,18 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
         <div class="empty" id="empty">Choose a video to preview it</div>
       </div>
       <div class="device-foot">
-        <span><span class="led" id="led"></span>240×240 screen, actual pixels</span>
+        <span><span class="led" id="led"></span><span id="screenNote">240×240 screen, actual pixels</span></span>
         <span id="frameInfo"></span>
       </div>
     </div>
     <div class="transport">
       <button class="btn ghost" id="playBtn" disabled>Pause</button>
+      <input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="Position" disabled>
       <span class="time" id="timeInfo"></span>
+    </div>
+    <div class="view-opts">
+      <label class="check"><input type="checkbox" id="overscan"> Show off-screen area</label>
+      <span class="hint">Drag to move, scroll or pinch to zoom, Shift+scroll to rotate. Arrow keys nudge by 1 px.</span>
     </div>
   </section>
 
@@ -226,19 +245,34 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
       <div class="file-meta" id="fileMeta">No video handy? <button class="linkish" id="sample">Use the sample video</button>.</div>
     </div>
 
-    <div class="step">
-      <h2><span class="n">2</span>Framing and length</h2>
-      <div class="seg" role="group" aria-label="Fit">
-        <button data-fit="cover" aria-pressed="true">Fill screen</button>
-        <button data-fit="contain" aria-pressed="false">Show whole video</button>
+    <div class="step" id="edit">
+      <h2><span class="n">2</span>Edit</h2>
+      <div class="tools" role="group" aria-label="Quick framing">
+        <button class="btn ghost" data-preset="fill">Fill screen</button>
+        <button class="btn ghost" data-preset="fit">Fit whole video</button>
+        <button class="btn ghost" data-preset="stretch">Stretch to screen</button>
+        <button class="btn ghost" data-preset="actual">Actual size</button>
+        <button class="btn ghost" data-preset="center">Center</button>
       </div>
-      <div class="row"><label for="zoom">Zoom</label><input type="range" id="zoom" min="1" max="3" step="0.01" value="1"><output id="zoomO">1.00×</output></div>
-      <div class="row"><label for="panX">Horizontal</label><input type="range" id="panX" min="-1" max="1" step="0.01" value="0"><output id="panXO">0</output></div>
-      <div class="row"><label for="panY">Vertical</label><input type="range" id="panY" min="-1" max="1" step="0.01" value="0"><output id="panYO">0</output></div>
-      <div class="row"><label for="bg">Background</label><input type="color" id="bg" value="#000000"><output></output></div>
-      <div class="row"><label for="tStart">Start</label><input type="range" id="tStart" min="0" max="0" step="0.01" value="0" disabled><output id="tStartO">0.00 s</output></div>
-      <div class="row"><label for="tEnd">End</label><input type="range" id="tEnd" min="0" max="0" step="0.01" value="0" disabled><output id="tEndO">0.00 s</output></div>
-      <p class="hint">Longer videos slow down boot and make the module bigger. 5–10 seconds works best.</p>
+      <p class="sub">Position and size</p>
+      <div class="ctls" data-group="frame"></div>
+      <label class="check"><input type="checkbox" id="lockAspect" checked> Keep proportions</label>
+      <p class="sub">Rotate and flip</p>
+      <div class="ctls" data-group="rotate"></div>
+      <div class="tools">
+        <button class="btn ghost" data-act="rotL">Rotate left 90°</button>
+        <button class="btn ghost" data-act="rotR">Rotate right 90°</button>
+        <button class="btn ghost" data-act="flipH" aria-pressed="false">Mirror</button>
+        <button class="btn ghost" data-act="flipV" aria-pressed="false">Upside down</button>
+      </div>
+      <p class="sub">Color</p>
+      <div class="ctls" data-group="color"></div>
+      <div class="ctl"><label for="bg">Background</label><input type="color" id="bg" value="#000000"><span></span><span></span></div>
+      <p class="sub">Time</p>
+      <div class="ctls" data-group="time"></div>
+      <label class="check"><input type="checkbox" id="reverse"> Play backwards</label>
+      <p class="hint">Double-click a label to reset that setting. Longer videos slow down boot and make the module bigger; 5–10 seconds works best.</p>
+      <div class="actions"><button class="btn ghost" id="resetAll">Reset all edits</button></div>
     </div>
 
     <div class="step">
@@ -331,33 +365,156 @@ adb reboot</pre>
   ];
   const $ = id => document.getElementById(id);
   const video = $('video'), preview = $('preview'), pctx = preview.getContext('2d');
-  const s = { fit: 'cover', zoom: 1, panX: 0, panY: 0, bg: '#000000', start: 0, end: 0, fps: 24, mode: 'once', fmt: 'png', ready: false, building: false, name: '' };
   let urls = [];
+  const s = { bg: '#000000', fps: 24, mode: 'once', fmt: 'png', ready: false, building: false, name: '', playing: true, p: 0, overscan: false };
+  // Edit settings. scale is % of "fill screen" at 0°; x/y are screen pixels from center.
+  const CTLS = [
+    { k: 'scale', g: 'frame', label: 'Scale', min: 5, max: 500, step: 1, def: 100, unit: '%' },
+    { k: 'sw', g: 'frame', label: 'Width', min: 10, max: 400, step: 1, def: 100, unit: '%' },
+    { k: 'sh', g: 'frame', label: 'Height', min: 10, max: 400, step: 1, def: 100, unit: '%' },
+    { k: 'x', g: 'frame', label: 'Move right', min: -480, max: 480, step: 1, def: 0, unit: 'px' },
+    { k: 'y', g: 'frame', label: 'Move down', min: -480, max: 480, step: 1, def: 0, unit: 'px' },
+    { k: 'rot', g: 'rotate', label: 'Angle', min: -180, max: 180, step: 0.5, def: 0, unit: '°' },
+    { k: 'bright', g: 'color', label: 'Brightness', min: 0, max: 200, step: 1, def: 100, unit: '%' },
+    { k: 'contrast', g: 'color', label: 'Contrast', min: 0, max: 200, step: 1, def: 100, unit: '%' },
+    { k: 'sat', g: 'color', label: 'Saturation', min: 0, max: 300, step: 1, def: 100, unit: '%' },
+    { k: 'hue', g: 'color', label: 'Hue', min: -180, max: 180, step: 1, def: 0, unit: '°' },
+    { k: 'blur', g: 'color', label: 'Blur', min: 0, max: 10, step: 0.1, def: 0, unit: 'px' },
+    { k: 'start', g: 'time', label: 'Start', min: 0, max: 0, step: 0.01, def: 0, unit: 's' },
+    { k: 'end', g: 'time', label: 'End', min: 0, max: 0, step: 0.01, def: 0, unit: 's' },
+    { k: 'speed', g: 'time', label: 'Speed', min: 0.25, max: 4, step: 0.05, def: 1, unit: '×' },
+    { k: 'fadeIn', g: 'time', label: 'Fade in', min: 0, max: 5, step: 0.1, def: 0, unit: 's' },
+    { k: 'fadeOut', g: 'time', label: 'Fade out', min: 0, max: 5, step: 0.1, def: 0, unit: 's' },
+  ];
+  const e = { flipH: false, flipV: false, reverse: false };
+  const ui = {};
+  for (const c of CTLS) {
+    e[c.k] = c.def;
+    const row = document.createElement('div'); row.className = 'ctl';
+    row.innerHTML = `<label for="c-${c.k}" title="Double-click to reset">${c.label}</label>` +
+      `<input type="range" id="c-${c.k}" min="${c.min}" max="${c.max}" step="${c.step}" value="${c.def}">` +
+      `<input type="number" min="${c.min}" max="${c.max}" step="${c.step}" value="${c.def}" aria-label="${c.label} value">` +
+      `<span class="unit">${c.unit}</span>`;
+    document.querySelector(`.ctls[data-group="${c.g}"]`).append(row);
+    const [label, range, num] = row.children;
+    ui[c.k] = { c, range, num };
+    range.addEventListener('input', () => set(c.k, +range.value, 'range'));
+    num.addEventListener('change', () => set(c.k, +num.value, 'num'));
+    label.addEventListener('dblclick', () => set(c.k, c.k === 'end' ? video.duration || 0 : c.def));
+  }
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const round = (v, step) => +(Math.round(v / step) * step).toFixed(4);
 
-  // Draw the current video frame into a 240x240 context using the framing settings.
-  function draw(ctx) {
+  // Single entry point for every edit, so range, number, gestures and presets stay in sync.
+  function set(k, v, from) {
+    const { c, range, num } = ui[k];
+    if (!isFinite(v)) v = e[k];
+    v = clamp(round(v, c.step), +range.min, +range.max);
+    const prev = e[k]; e[k] = v;
+    if ((k === 'sw' || k === 'sh') && $('lockAspect').checked && from && prev) {
+      const o = k === 'sw' ? 'sh' : 'sw';
+      e[o] = clamp(round(e[o] * v / prev, 1), ui[o].c.min, ui[o].c.max); ui[o].range.value = ui[o].num.value = e[o];
+    }
+    if (k === 'start' || k === 'end') {
+      const min = 1 / s.fps;
+      if (e.end - e.start < min) {
+        if (k === 'start') { e.start = Math.max(0, e.end - min); sync('start'); }
+        else { e.end = Math.min(video.duration || 0, e.start + min); sync('end'); }
+      }
+      s.p = k === 'end' ? Math.max(0, total() - 1) : 0;
+      seekPreview();
+    }
+    if (from !== 'range') range.value = v;
+    num.value = v;
+    if (['start', 'end', 'speed'].includes(k)) updateEstimate();
+  }
+  const sync = k => { ui[k].range.value = ui[k].num.value = e[k]; };
+
+  // Output timeline: total length in seconds after trim and speed.
+  const total = () => Math.max(1 / s.fps, (e.end - e.start) / e.speed);
+  const srcTime = p => clamp(e.reverse ? e.end - p * e.speed : e.start + p * e.speed, 0, (video.duration || 0) - 0.001);
+  function fadeAt(p) {
+    const T = total(); let a = 0;
+    if (e.fadeIn > 0 && p < e.fadeIn) a = Math.max(a, 1 - p / e.fadeIn);
+    if (e.fadeOut > 0 && p > T - e.fadeOut) a = Math.max(a, (p - (T - e.fadeOut)) / e.fadeOut);
+    return clamp(a, 0, 1);
+  }
+  function filterStr() {
+    const f = [];
+    if (e.bright !== 100) f.push(`brightness(${e.bright}%)`);
+    if (e.contrast !== 100) f.push(`contrast(${e.contrast}%)`);
+    if (e.sat !== 100) f.push(`saturate(${e.sat}%)`);
+    if (e.hue) f.push(`hue-rotate(${e.hue}deg)`);
+    if (e.blur) f.push(`blur(${e.blur}px)`);
+    return f.length ? f.join(' ') : 'none';
+  }
+  const baseScale = () => Math.max(W / video.videoWidth, H / video.videoHeight);
+
+  // Draw the current video frame. k/o map screen pixels to canvas pixels, so the same
+  // code renders the 240x240 output and the zoomed-out "off-screen" preview.
+  function draw(ctx, fade = 0, k = 1, o = 0) {
     const vw = video.videoWidth, vh = video.videoHeight;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1;
+    if (o) { ctx.fillStyle = '#0d0f12'; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height); }
+    ctx.setTransform(k, 0, 0, k, o, o);
     ctx.fillStyle = s.bg; ctx.fillRect(0, 0, W, H);
     if (!vw) return;
-    const base = s.fit === 'cover' ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
-    const dw = vw * base * s.zoom, dh = vh * base * s.zoom;
-    const dx = (W - dw) / 2 - s.panX * Math.abs(dw - W) / 2;
-    const dy = (H - dh) / 2 - s.panY * Math.abs(dh - H) / 2;
+    const m = baseScale() * e.scale / 100;
+    ctx.save();
+    ctx.translate(W / 2 + e.x, H / 2 + e.y);
+    ctx.rotate(e.rot * Math.PI / 180);
+    ctx.scale((e.flipH ? -1 : 1) * m * e.sw / 100, (e.flipV ? -1 : 1) * m * e.sh / 100);
+    ctx.filter = filterStr();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(video, dx, dy, dw, dh);
+    ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+    ctx.restore();
+    if (fade > 0) { ctx.globalAlpha = fade; ctx.fillStyle = s.bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+    if (o) {
+      // Dim everything outside the screen and outline it.
+      const full = ctx.canvas.width / k;
+      ctx.beginPath(); ctx.rect(-o / k, -o / k, full, full); ctx.rect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(13,15,18,.62)'; ctx.fill('evenodd');
+      ctx.strokeStyle = '#5b8cf0'; ctx.lineWidth = 1.5 / k; ctx.strokeRect(0, 0, W, H);
+    }
   }
+  const view = () => s.overscan ? { k: 1, o: W / 2 } : { k: 1, o: 0 };
+  function renderPreview() { const v = view(); draw(pctx, fadeAt(s.p), v.k, v.o); }
 
-  function loop() {
+  // Preview clock. Forward playback uses the video element; backwards playback seeks frame by frame.
+  let lastNow = 0;
+  function seekPreview() { if (s.ready) video.currentTime = srcTime(s.p); }
+  function loop(now) {
+    const dt = lastNow ? (now - lastNow) / 1000 : 0; lastNow = now;
     if (s.ready && !s.building) {
-      if (video.currentTime >= s.end || video.currentTime < s.start - 0.05) video.currentTime = s.start;
-      draw(pctx);
-      $('timeInfo').textContent = `${(video.currentTime - s.start).toFixed(1)} / ${(s.end - s.start).toFixed(1)} s`;
+      const T = total();
+      if (e.reverse) {
+        if (!video.paused) video.pause();
+        if (s.playing) { s.p += dt; if (s.p >= T) s.p = 0; }
+        const t = srcTime(s.p);
+        if (!video.seeking && Math.abs(video.currentTime - t) > 0.02) video.currentTime = t;
+      } else {
+        if (video.playbackRate !== e.speed) video.playbackRate = e.speed;
+        if (s.playing && video.paused) video.play().catch(() => {});
+        if (!s.playing && !video.paused) video.pause();
+        if (s.playing) {
+          if (video.currentTime >= e.end - 0.01 || video.currentTime < e.start - 0.05 || video.ended) { s.p = 0; video.currentTime = e.start; }
+          else s.p = (video.currentTime - e.start) / e.speed;
+        }
+      }
+      renderPreview();
+      $('scrub').value = s.p / T;
+      $('timeInfo').textContent = `${s.p.toFixed(1)} / ${T.toFixed(1)} s`;
     }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+  video.addEventListener('seeked', () => { if (!s.playing && s.ready && !s.building) renderPreview(); });
 
-  function frameCount() { return Math.max(1, Math.round((s.end - s.start) * s.fps)); }
+  function setPlaying(on) { s.playing = on; $('playBtn').textContent = on ? 'Pause' : 'Play'; if (!on) seekPreview(); }
+  $('playBtn').addEventListener('click', () => setPlaying(!s.playing));
+  $('scrub').addEventListener('input', () => { setPlaying(false); s.p = +$('scrub').value * total(); seekPreview(); });
+
+  function frameCount() { return Math.max(1, Math.round(total() * s.fps)); }
   function updateEstimate() {
     if (!s.ready) return;
     const n = frameCount();
@@ -367,29 +524,94 @@ adb reboot</pre>
     $('frameInfo').textContent = `${n} frames, ${s.fps} fps`;
   }
 
-  function bindRange(id, key, fmt) {
-    const el = $(id), out = $(id + 'O');
-    const set = () => { s[key] = parseFloat(el.value); if (out) out.textContent = fmt(s[key]); };
-    el.addEventListener('input', () => { set(); onTrim(id); updateEstimate(); });
-    set();
-  }
-  function onTrim(id) {
-    if (id !== 'tStart' && id !== 'tEnd') return;
-    const min = 1 / s.fps;
-    if (s.end - s.start < min) {
-      if (id === 'tStart') { s.start = Math.max(0, s.end - min); $('tStart').value = s.start; }
-      else { s.end = Math.min(video.duration, s.start + min); $('tEnd').value = s.end; }
+  $('bg').addEventListener('input', ev => { s.bg = ev.target.value; });
+  $('reverse').addEventListener('change', ev => { e.reverse = ev.target.checked; seekPreview(); });
+  $('overscan').addEventListener('change', ev => {
+    s.overscan = ev.target.checked;
+    preview.width = preview.height = s.overscan ? 2 * W : W;
+    preview.classList.toggle('overscan', s.overscan);
+    $('screenNote').textContent = s.overscan ? 'Screen outlined in blue' : '240×240 screen, actual pixels';
+  });
+
+  // Quick framing presets. They account for the current angle and width/height.
+  function preset(name) {
+    if (!video.videoWidth) return;
+    const vw = video.videoWidth, vh = video.videoHeight, base = baseScale();
+    const r = e.rot * Math.PI / 180, c = Math.abs(Math.cos(r)), sn = Math.abs(Math.sin(r));
+    const w = vw * e.sw / 100, h = vh * e.sh / 100;
+    if (name === 'fill') set('scale', Math.max(W * (c + sn) / w, H * (c + sn) / h) / base * 100 + 0.5);
+    if (name === 'fit') set('scale', Math.min(W / (w * c + h * sn), H / (w * sn + h * c)) / base * 100 - 0.5);
+    if (name === 'actual') { set('sw', 100); set('sh', 100); set('scale', 100 / base); }
+    if (name === 'stretch') {
+      const q = Math.round(e.rot / 90) * 90; set('rot', q);
+      const side = Math.abs(q) % 180 === 90;
+      set('scale', 100);
+      set('sw', (side ? H : W) / (vw * base) * 100); set('sh', (side ? W : H) / (vh * base) * 100);
     }
-    $('tStartO').textContent = s.start.toFixed(2) + ' s';
-    $('tEndO').textContent = s.end.toFixed(2) + ' s';
-    video.currentTime = id === 'tEnd' ? Math.max(s.start, s.end - 1) : s.start;
+    if (name !== 'actual') { set('x', 0); set('y', 0); }
+    if (name === 'center') { set('x', 0); set('y', 0); }
   }
-  bindRange('zoom', 'zoom', v => v.toFixed(2) + '×');
-  bindRange('panX', 'panX', v => v.toFixed(2));
-  bindRange('panY', 'panY', v => v.toFixed(2));
-  bindRange('tStart', 'start', v => v.toFixed(2) + ' s');
-  bindRange('tEnd', 'end', v => v.toFixed(2) + ' s');
-  $('bg').addEventListener('input', e => { s.bg = e.target.value; });
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => preset(b.dataset.preset)));
+  function flip(k, btn) { e[k] = !e[k]; btn.setAttribute('aria-pressed', e[k]); }
+  document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const a = b.dataset.act;
+    if (a === 'rotL' || a === 'rotR') { let v = e.rot + (a === 'rotL' ? -90 : 90); if (v > 180) v -= 360; if (v < -180) v += 360; set('rot', v); }
+    else flip(a, b);
+  }));
+  $('resetAll').addEventListener('click', () => {
+    for (const c of CTLS) if (c.k !== 'start' && c.k !== 'end') set(c.k, c.def);
+    set('start', 0); set('end', video.duration ? Math.min(video.duration, 15) : 0);
+    e.flipH = e.flipV = false; document.querySelectorAll('[data-act^="flip"]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    $('reverse').checked = e.reverse = false; $('bg').value = s.bg = '#000000';
+  });
+
+  // Direct manipulation on the preview.
+  const pointers = new Map(); let pinch = null;
+  const pxPerCss = () => preview.width / preview.getBoundingClientRect().width;
+  // Screen coordinates (relative to the screen's center) of a client point.
+  function screenPt(cx, cy) {
+    const b = preview.getBoundingClientRect(), k = pxPerCss(), o = view().o;
+    return { x: (cx - b.left) * k - o - W / 2, y: (cy - b.top) * k - o - H / 2 };
+  }
+  // Scale by f while keeping the screen point pt fixed.
+  function zoomAt(f, pt) {
+    const ns = clamp(e.scale * f, ui.scale.c.min, ui.scale.c.max); f = ns / e.scale;
+    set('scale', ns); set('x', pt.x - (pt.x - e.x) * f); set('y', pt.y - (pt.y - e.y) * f);
+  }
+  preview.addEventListener('pointerdown', ev => { if (!s.ready) return; preview.setPointerCapture(ev.pointerId); pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); pinch = null; });
+  preview.addEventListener('pointermove', ev => {
+    if (!pointers.has(ev.pointerId)) return;
+    const prev = pointers.get(ev.pointerId), cur = { x: ev.clientX, y: ev.clientY };
+    pointers.set(ev.pointerId, cur);
+    if (pointers.size === 1) { const k = pxPerCss(); set('x', e.x + (cur.x - prev.x) * k); set('y', e.y + (cur.y - prev.y) * k); }
+    else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      if (pinch) { zoomAt(d / pinch.d, screenPt((a.x + b.x) / 2, (a.y + b.y) / 2)); set('rot', e.rot + ang - pinch.ang); }
+      pinch = { d, ang };
+    }
+  });
+  const up = ev => { pointers.delete(ev.pointerId); pinch = null; };
+  preview.addEventListener('pointerup', up); preview.addEventListener('pointercancel', up);
+  preview.addEventListener('wheel', ev => {
+    if (!s.ready) return;
+    ev.preventDefault();
+    const d = ev.deltaY || ev.deltaX;
+    if (ev.shiftKey) set('rot', e.rot + d * 0.1);
+    else zoomAt(Math.exp(-d * 0.0015), screenPt(ev.clientX, ev.clientY));
+  }, { passive: false });
+  preview.tabIndex = 0;
+  preview.setAttribute('aria-label', 'Video framing. Arrow keys move, plus and minus zoom, brackets rotate.');
+  preview.addEventListener('keydown', ev => {
+    if (!s.ready) return;
+    const step = ev.shiftKey ? 10 : 1, keys = {
+      ArrowLeft: () => set('x', e.x - step), ArrowRight: () => set('x', e.x + step),
+      ArrowUp: () => set('y', e.y - step), ArrowDown: () => set('y', e.y + step),
+      '+': () => set('scale', e.scale + step), '=': () => set('scale', e.scale + step), '-': () => set('scale', e.scale - step),
+      '[': () => set('rot', e.rot - step), ']': () => set('rot', e.rot + step), '0': () => preset('fill'),
+    };
+    if (keys[ev.key]) { ev.preventDefault(); keys[ev.key](); }
+  });
 
   function bindSeg(attr, key, parse = v => v) {
     document.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener('click', () => {
@@ -397,10 +619,10 @@ adb reboot</pre>
       s[key] = parse(b.dataset[attr]); updateEstimate();
     }));
   }
-  bindSeg('fit', 'fit'); bindSeg('mode', 'mode'); bindSeg('fmt', 'fmt'); bindSeg('fps', 'fps', Number);
+  bindSeg('mode', 'mode'); bindSeg('fmt', 'fmt'); bindSeg('fps', 'fps', Number);
 
   // Loading a video
-  function load(src, name, size) {
+  function load(src, name) {
     s.ready = false; s.name = name;
     resetOutput();
     video.src = src;
@@ -410,32 +632,25 @@ adb reboot</pre>
   video.addEventListener('loadedmetadata', () => {
     const d = video.duration;
     if (!isFinite(d) || !video.videoWidth) { setStatus('This video can\'t be played. Try another format; MP4 with H.264 is the safest.', 'err'); return; }
-    for (const id of ['tStart', 'tEnd']) { $(id).max = d.toFixed(2); $(id).disabled = false; }
-    s.start = 0; s.end = Math.min(d, 15);
-    $('tStart').value = 0; $('tEnd').value = s.end;
-    $('tStartO').textContent = '0.00 s'; $('tEndO').textContent = s.end.toFixed(2) + ' s';
+    for (const k of ['start', 'end']) for (const el of [ui[k].range, ui[k].num]) el.max = d.toFixed(2);
+    e.start = 0; e.end = +Math.min(d, 15).toFixed(2); sync('start'); sync('end');
+    s.p = 0;
     $('fileMeta').textContent = `${s.name}: ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} s` + (d > 15 ? '. The first 15 seconds are selected.' : '');
     $('empty').hidden = true; $('led').classList.add('on');
-    $('build').disabled = false; $('playBtn').disabled = false;
-    s.ready = true; video.loop = false; video.play().catch(() => {});
-    $('playBtn').textContent = 'Pause';
+    $('build').disabled = false; $('playBtn').disabled = false; $('scrub').disabled = false;
+    s.ready = true; video.loop = false; video.currentTime = 0;
+    setPlaying(true);
     updateEstimate();
   });
   video.addEventListener('error', () => setStatus('The video could not be opened. The file may be damaged, or your browser may not support this format.', 'err'));
-  video.addEventListener('ended', () => { if (s.ready && !s.building) { video.currentTime = s.start; video.play().catch(() => {}); } });
-
-  $('playBtn').addEventListener('click', () => {
-    if (video.paused) { video.play(); $('playBtn').textContent = 'Pause'; }
-    else { video.pause(); $('playBtn').textContent = 'Play'; }
-  });
 
   const drop = $('drop'), fileIn = $('file');
   drop.addEventListener('click', () => fileIn.click());
   drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
-  fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (f) load(URL.createObjectURL(f), f.name, f.size); });
+  fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (f) load(URL.createObjectURL(f), f.name); });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name, f.size); else if (f) setStatus('That file is not a video.', 'err'); });
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name); else if (f) setStatus('That file is not a video.', 'err'); });
   $('sample').addEventListener('click', () => load('sample.mp4', 'sample video'));
 
   function setStatus(msg, cls = '') { const el = $('status'); el.textContent = msg; el.className = 'status ' + cls; }
@@ -469,9 +684,10 @@ adb reboot</pre>
       let last;
       for (let i = 0; i < n; i++) {
         // Sample the middle of each output frame's time slot.
-        const t = Math.min(s.start + (i + 0.5) / fps, video.duration - 0.001);
-        await seek(t);
-        draw(ctx); pctx.drawImage(c, 0, 0);
+        const p = (i + 0.5) / fps;
+        await seek(srcTime(p));
+        draw(ctx, fadeAt(p));
+        pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.drawImage(c, 0, 0, pctx.canvas.width, pctx.canvas.height);
         last = await toBytes(c, type, 0.92);
         anim[`part0/${String(i).padStart(5, '0')}.${ext}`] = last;
         $('bar').style.width = (90 * (i + 1) / n) + '%';
@@ -518,7 +734,7 @@ adb reboot</pre>
       setStatus('Could not build the module: ' + e.message, 'err');
     } finally {
       s.building = false; $('build').disabled = false; $('playBtn').disabled = false;
-      video.currentTime = s.start; video.play().catch(() => {}); $('playBtn').textContent = 'Pause';
+      s.p = 0; seekPreview(); setPlaying(true);
     }
   }
   $('build').addEventListener('click', build);
