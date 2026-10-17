@@ -8,8 +8,8 @@ Magisk module that replaces the ZTE U30 Pro (MU5358, 240x240 screen) boot animat
 
 To change the video, replace `video/boot.mp4` and push.
 
-Web tool: https://kaandikec.com/u30p-boot-video/ — pick any video, adjust framing/trim/fps in the browser, and download a ready-to-flash Magisk zip. Nothing is uploaded; frames are extracted with `<video>` + canvas and zipped with fflate. A zip built there replaces the installed module.
+Web tool: https://kaandikec.com/u30p-boot-video/ — pick any video or GIF (file, paste, or a GIPHY/Tenor/direct link), adjust framing/trim/fps in the browser, and download a ready-to-flash Magisk zip. Nothing is uploaded; frames are extracted with `<video>` + canvas and zipped with fflate. A zip built there replaces the installed module.
 
-The page can also install over USB (Chrome/Edge, WebUSB): connect, then install the built module or any zip, then reboot. It uses [Tango](https://github.com/yume-chan/ya-webadb), bundled into `site/vendor/tango.js` by `scripts/build-tango.sh`. The U30 Pro ships with USB set to `ncm,mtp` (no ADB); the companion `usb-adb/` module (`u30p-usb-adb.zip` in each release) switches it to `ncm,mtp,adb` after boot and keeps it there. This device doesn't require ADB key authorization, so the browser connects without a prompt. Network ADB can't be reached from a browser.
+The page can also install over USB (Chrome/Edge, WebUSB): connect, then install the built module or any zip, then reboot. It uses [Tango](https://github.com/yume-chan/ya-webadb), bundled into `site/vendor/tango.js` by `scripts/build-vendor.sh`. The U30 Pro ships with USB set to `ncm,mtp` (no ADB); the companion `usb-adb/` module (`u30p-usb-adb.zip` in each release) switches it to `ncm,mtp,adb` after boot and keeps it there. This device doesn't require ADB key authorization, so the browser connects without a prompt. Network ADB can't be reached from a browser.
 
 Local build: `scripts/build.sh` (requires ffmpeg and zip) → `out/u30p-boot-video.zip`.

@@ -160,6 +160,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .drop.over { border-color: var(--accent); color: var(--ink); }
 .drop strong { color: var(--ink); font-weight: 600; }
+.url-row { display: flex; gap: 8px; margin-top: 12px; }
+.url-row input { flex: 1; min-width: 0; font: inherit; font-size: 0.9375rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
 .file-meta { margin-top: 10px; font-size: 0.875rem; color: var(--muted); }
 .linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .btn {
@@ -212,7 +214,7 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
 <main class="wrap">
   <section class="stage" aria-label="Preview">
     <h1>U30 Pro boot video</h1>
-    <p class="lede">Pick a video, frame it, download the Magisk module. The video is processed in your browser and never uploaded.</p>
+    <p class="lede">Pick a video or GIF, frame it, download the Magisk module. Everything is processed in your browser and never uploaded.</p>
     <div class="device">
       <div class="bezel">
         <canvas id="preview" width="240" height="240"></canvas>
@@ -238,10 +240,14 @@ input[type=color] { width: 44px; height: 30px; border: 1px solid var(--line); bo
     <div class="step">
       <h2><span class="n">1</span>Video</h2>
       <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a video file">
-        <strong>Drop a video here</strong> or click to choose one<br>
-        <span style="font-size:.875rem">MP4, WebM, MOV: anything your browser can play</span>
+        <strong>Drop a video or GIF here</strong> or click to choose one<br>
+        <span style="font-size:.875rem">MP4, WebM, MOV, GIF. You can also paste a file or link anywhere on the page.</span>
       </div>
-      <input type="file" id="file" accept="video/*" class="sr">
+      <input type="file" id="file" accept="video/*,image/gif,.gif" class="sr">
+      <form class="url-row" id="urlForm">
+        <input type="url" id="urlIn" placeholder="Or paste a GIPHY, Tenor or other GIF/video link" aria-label="GIF or video link" required>
+        <button class="btn ghost" type="submit">Load link</button>
+      </form>
       <div class="file-meta" id="fileMeta">No video handy? <button class="linkish" id="sample">Use the sample video</button>.</div>
     </div>
 
@@ -364,7 +370,71 @@ adb reboot</pre>
     'customize.sh', 'post-fs-data.sh', 'service.sh', 'uninstall.sh',
   ];
   const $ = id => document.getElementById(id);
-  const video = $('video'), preview = $('preview'), pctx = preview.getContext('2d');
+  const videoEl = $('video'), preview = $('preview'), pctx = preview.getContext('2d');
+  videoEl.image = videoEl;
+  // Plays a decoded GIF through the subset of the HTMLVideoElement API the editor uses
+  // (currentTime, play/pause, seeking, playbackRate, seeked/loadedmetadata events).
+  class GifPlayer extends EventTarget {
+    constructor() { super(); this.unload(); }
+    unload() {
+      if (this.frames) { this.pause(); this.frames.forEach(f => f.bmp.close()); }
+      Object.assign(this, { frames: [], _t: 0, paused: true, ended: false, seeking: false, playbackRate: 1, loop: false, videoWidth: 0, videoHeight: 0, duration: NaN, image: null });
+    }
+    async load(buf) {
+      const { parseGIF, decompressFrames } = await import('./vendor/gifuct.js');
+      const gif = parseGIF(buf), raw = decompressFrames(gif, true);
+      if (!raw.length) throw new Error('the GIF has no frames');
+      const w = gif.lsd.width, h = gif.lsd.height;
+      const comp = document.createElement('canvas'); comp.width = w; comp.height = h;
+      const cx = comp.getContext('2d', { willReadFrequently: true });
+      const patch = document.createElement('canvas'), px = patch.getContext('2d');
+      const frames = []; let t = 0;
+      for (const f of raw) {
+        const { top, left, width, height } = f.dims;
+        const before = f.disposalType === 3 ? cx.getImageData(0, 0, w, h) : null;
+        patch.width = width; patch.height = height;
+        px.putImageData(new ImageData(f.patch, width, height), 0, 0);
+        cx.drawImage(patch, left, top);
+        frames.push({ start: t, bmp: await createImageBitmap(comp) });
+        // Browsers play delays of 10 ms or less at 100 ms; match them.
+        t += (f.delay <= 10 ? 100 : f.delay) / 1000;
+        if (f.disposalType === 2) cx.clearRect(left, top, width, height);
+        else if (before) cx.putImageData(before, 0, 0);
+      }
+      this.unload();
+      Object.assign(this, { frames, videoWidth: w, videoHeight: h, duration: t, image: frames[0].bmp });
+      this.dispatchEvent(new Event('loadedmetadata'));
+    }
+    _render() {
+      let lo = 0, hi = this.frames.length - 1;
+      while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (this.frames[mid].start <= this._t) lo = mid; else hi = mid - 1; }
+      this.image = this.frames[lo].bmp;
+    }
+    get currentTime() { return this._t; }
+    set currentTime(v) {
+      this._t = Math.min(Math.max(0, v), this.duration || 0); this.ended = false; this._render();
+      this.seeking = true;
+      setTimeout(() => { this.seeking = false; this.dispatchEvent(new Event('seeked')); });
+    }
+    play() {
+      if (!this.paused || !this.frames.length) return Promise.resolve();
+      this.paused = false; this.ended = false;
+      let last = performance.now();
+      const tick = now => {
+        if (this.paused) return;
+        this._t += (now - last) / 1000 * this.playbackRate; last = now;
+        if (this._t >= this.duration) { this._t = this.duration; this.paused = true; this.ended = true; this._render(); this.dispatchEvent(new Event('ended')); return; }
+        this._render(); this._raf = requestAnimationFrame(tick);
+      };
+      this._raf = requestAnimationFrame(tick);
+      return Promise.resolve();
+    }
+    pause() { this.paused = true; cancelAnimationFrame(this._raf); }
+  }
+  const gif = new GifPlayer();
+  const onMedia = (ev, fn) => { videoEl.addEventListener(ev, fn); gif.addEventListener(ev, fn); };
+
+  let video = videoEl;
   let urls = [];
   const s = { bg: '#000000', fps: 24, mode: 'once', fmt: 'png', ready: false, building: false, name: '', playing: true, p: 0, overscan: false };
   // Edit settings. scale is % of "fill screen" at 0°; x/y are screen pixels from center.
@@ -466,7 +536,7 @@ adb reboot</pre>
     ctx.scale((e.flipH ? -1 : 1) * m * e.sw / 100, (e.flipV ? -1 : 1) * m * e.sh / 100);
     ctx.filter = filterStr();
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+    ctx.drawImage(video.image, -vw / 2, -vh / 2, vw, vh);
     ctx.restore();
     if (fade > 0) { ctx.globalAlpha = fade; ctx.fillStyle = s.bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
     if (o) {
@@ -508,7 +578,7 @@ adb reboot</pre>
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
-  video.addEventListener('seeked', () => { if (!s.playing && s.ready && !s.building) renderPreview(); });
+  onMedia('seeked', () => { if (!s.playing && s.ready && !s.building) renderPreview(); });
 
   function setPlaying(on) { s.playing = on; $('playBtn').textContent = on ? 'Pause' : 'Play'; if (!on) seekPreview(); }
   $('playBtn').addEventListener('click', () => setPlaying(!s.playing));
@@ -621,37 +691,111 @@ adb reboot</pre>
   }
   bindSeg('mode', 'mode'); bindSeg('fmt', 'fmt'); bindSeg('fps', 'fps', Number);
 
-  // Loading a video
-  function load(src, name) {
+  // Loading a video or GIF. Everything arrives as a Blob, so the canvas never gets tainted.
+  let loadId = 0, srcUrl = null;
+  const isGif = async blob => blob.type === 'image/gif' || new TextDecoder().decode(await blob.slice(0, 4).arrayBuffer()) === 'GIF8';
+  async function load(blob, name) {
+    const id = ++loadId;
     s.ready = false; s.name = name;
     resetOutput();
-    video.src = src;
-    video.load();
     $('fileMeta').textContent = `Loading ${name}`;
+    video.pause();
+    if (srcUrl) { URL.revokeObjectURL(srcUrl); srcUrl = null; }
+    if (await isGif(blob)) {
+      videoEl.removeAttribute('src'); videoEl.load();
+      video = gif;
+      try {
+        const buf = await blob.arrayBuffer();
+        if (id === loadId) await gif.load(buf);
+      } catch (err) { if (id === loadId) setStatus(`The GIF could not be read: ${err.message}.`, 'err'); }
+    } else {
+      gif.unload();
+      video = videoEl;
+      srcUrl = URL.createObjectURL(blob);
+      videoEl.src = srcUrl; videoEl.load();
+    }
   }
-  video.addEventListener('loadedmetadata', () => {
+  const loadFile = f => {
+    if (!f) return;
+    if (f.type.startsWith('video/') || f.type === 'image/gif' || /\.gif$/i.test(f.name)) load(f, f.name);
+    else setStatus('That file is not a video or a GIF.', 'err');
+  };
+
+  // Direct media links for GIPHY and Tenor; their small MP4 versions are tried first.
+  function candidates(raw) {
+    const u = new URL(raw), host = u.hostname.replace(/^www\./, '');
+    let m;
+    if (host.endsWith('giphy.com')) {
+      const id = (m = u.pathname.match(/\/media\/(?:v1\.[^/]+\/)?([A-Za-z0-9]+)\//)) ? m[1]
+        : (m = u.pathname.match(/^\/([A-Za-z0-9]+)\.(?:gif|webp|mp4)$/)) ? m[1]
+        : (m = u.pathname.match(/^\/(?:gifs|clips|stickers)\/(?:[^/]*-)?([A-Za-z0-9]+)\/?$/)) ? m[1] : null;
+      if (id) return [`https://media.giphy.com/media/${id}/giphy.mp4`, `https://media.giphy.com/media/${id}/giphy.gif`];
+    }
+    if (/^media\d*\.tenor\.com$/.test(host) && (m = u.pathname.match(/^\/(?:m\/)?([A-Za-z0-9_-]{11,})\/([^/]+?)\.\w+$/))) {
+      return [`https://media.tenor.com/${m[1].slice(0, -5)}AAAPo/${m[2]}.mp4`, u.href];
+    }
+    if (host === 'tenor.com') throw new Error('Tenor page links can\'t be read from the browser. Right-click the GIF on Tenor, choose "Copy image address", and paste that link instead');
+    return [u.href];
+  }
+  async function loadLink(raw) {
+    let list;
+    try { list = candidates(raw.trim()); } catch (err) { setStatus((err instanceof TypeError ? 'That is not a valid link' : err.message) + '.', 'err'); return; }
+    const prevMeta = $('fileMeta').textContent;
+    $('fileMeta').textContent = 'Downloading';
+    for (const url of list) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        if (!(await isGif(blob)) && !blob.type.startsWith('video/') && blob.type !== 'application/octet-stream') continue;
+        const name = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).slice(-2).join('/'));
+        return load(blob, name);
+      } catch { /* try the next candidate */ }
+    }
+    $('fileMeta').textContent = prevMeta === 'Downloading' ? '' : prevMeta;
+    setStatus('Could not download that link. The site may not allow other pages to load its files; download it and drop the file here instead.', 'err');
+  }
+  $('urlForm').addEventListener('submit', ev => { ev.preventDefault(); loadLink($('urlIn').value); });
+
+  onMedia('loadedmetadata', () => {
     const d = video.duration;
     if (!isFinite(d) || !video.videoWidth) { setStatus('This video can\'t be played. Try another format; MP4 with H.264 is the safest.', 'err'); return; }
     for (const k of ['start', 'end']) for (const el of [ui[k].range, ui[k].num]) el.max = d.toFixed(2);
     e.start = 0; e.end = +Math.min(d, 15).toFixed(2); sync('start'); sync('end');
     s.p = 0;
-    $('fileMeta').textContent = `${s.name}: ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} s` + (d > 15 ? '. The first 15 seconds are selected.' : '');
+    const kind = video === gif ? `GIF, ${gif.frames.length} frames` : 'video';
+    $('fileMeta').textContent = `${s.name}: ${kind}, ${video.videoWidth}×${video.videoHeight}, ${d.toFixed(1)} s` + (d > 15 ? '. The first 15 seconds are selected.' : '');
     $('empty').hidden = true; $('led').classList.add('on');
     $('build').disabled = false; $('playBtn').disabled = false; $('scrub').disabled = false;
     s.ready = true; video.loop = false; video.currentTime = 0;
     setPlaying(true);
     updateEstimate();
   });
-  video.addEventListener('error', () => setStatus('The video could not be opened. The file may be damaged, or your browser may not support this format.', 'err'));
+  videoEl.addEventListener('error', () => { if (video === videoEl && videoEl.getAttribute('src')) setStatus('The video could not be opened. The file may be damaged, or your browser may not support this format.', 'err'); });
 
   const drop = $('drop'), fileIn = $('file');
   drop.addEventListener('click', () => fileIn.click());
   drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } });
-  fileIn.addEventListener('change', () => { const f = fileIn.files[0]; if (f) load(URL.createObjectURL(f), f.name); });
+  fileIn.addEventListener('change', () => { loadFile(fileIn.files[0]); fileIn.value = ''; });
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('video/')) load(URL.createObjectURL(f), f.name); else if (f) setStatus('That file is not a video.', 'err'); });
-  $('sample').addEventListener('click', () => load('sample.mp4', 'sample video'));
+  drop.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) return loadFile(f);
+    const link = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    if (link) { $('urlIn').value = link; loadLink(link); }
+  });
+  document.addEventListener('paste', ev => {
+    if (ev.target.closest && ev.target.closest('input, textarea')) return;
+    const f = [...ev.clipboardData.files][0];
+    if (f) { ev.preventDefault(); loadFile(f); return; }
+    const text = ev.clipboardData.getData('text');
+    if (/^https?:\/\//.test(text)) { ev.preventDefault(); $('urlIn').value = text; loadLink(text); }
+  });
+  $('sample').addEventListener('click', async () => {
+    const res = await fetch('sample.mp4');
+    if (res.ok) load(await res.blob(), 'sample video'); else setStatus('The sample video is missing from this site.', 'err');
+  });
 
   function setStatus(msg, cls = '') { const el = $('status'); el.textContent = msg; el.className = 'status ' + cls; }
   function resetOutput() {
@@ -741,7 +885,7 @@ adb reboot</pre>
 })();
 </script>
 <script type="module">
-// Install over WebUSB with Tango (site/vendor/tango.js, see scripts/build-tango.sh).
+// Install over WebUSB with Tango (site/vendor/tango.js, see scripts/build-vendor.sh).
 const $ = id => document.getElementById(id);
 const REMOTE = '/data/local/tmp/u30p-boot-video.zip';
 let built = null, adb = null, busy = false, rebooting = false;
