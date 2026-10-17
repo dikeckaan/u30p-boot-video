@@ -9,9 +9,9 @@ OUT=$ROOT/out; WORK=$OUT/work
 W=240; H=240; FPS=24
 rm -rf "$OUT"; mkdir -p "$WORK/anim/part0" "$WORK/anim/part1"
 
-# Video -> PNG frames sized to the 240x240 panel.
+# Video -> PNG frames filling the 240x240 panel (center crop).
 ffmpeg -loglevel error -i "$ROOT/video/boot.mp4" \
-  -vf "scale=$W:$H:force_original_aspect_ratio=decrease:flags=lanczos,pad=$W:$H:(ow-iw)/2:(oh-ih)/2:black,format=rgb24" \
+  -vf "scale=$W:$H:force_original_aspect_ratio=increase:flags=lanczos,crop=$W:$H,format=rgb24" \
   -r $FPS "$WORK/anim/part0/%05d.png"
 cp "$(ls "$WORK"/anim/part0/*.png | tail -1)" "$WORK/anim/part1/00000.png"
 # part0 plays once in full, part1 (last frame) holds until boot completes.

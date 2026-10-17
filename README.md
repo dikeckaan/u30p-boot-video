@@ -2,7 +2,7 @@
 
 Magisk module that replaces the ZTE U30 Pro (MU5358, 240x240 screen) boot animation with a video.
 
-- Source video: `video/boot.mp4`. It is scaled to 240x240 and converted to `bootanimation.zip` at 24 fps. It plays once in full, then holds the last frame until boot completes.
+- Source video: `video/boot.mp4`. It is center-cropped to 240x240 and converted to `bootanimation.zip` at 24 fps. It plays once in full, then holds the last frame until boot completes.
 - Every push that touches the module or video builds it in GitHub Actions and publishes a release (`v1.0.<commit count>`) for manual download. There is no `updateJson`: Magisk never offers updates, so an installed module (and anyone's custom video) is never replaced by a repo push.
 - Bootloop guard: if a boot does not reach `sys.boot_completed`, the module disables itself on the next boot (log: `/data/adb/u30p-boot-video/log`).
 
